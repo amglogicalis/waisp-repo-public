@@ -169,17 +169,21 @@ class WaispStudioApp {
     renderDashboard() {
         const targets = Object.values(this.state.targets || {});
         const vulns = Object.values(this.state.vulnerabilities || {});
+        const canaries = Object.values(this.state.canaries || {});
 
         const critical = vulns.filter(v => v.severity === 'CRITICAL').length;
         const highmed = vulns.filter(v => v.severity === 'HIGH' || v.severity === 'MEDIUM').length;
-        const maxCvss = vulns.reduce((max, v) => Math.max(max, v.cvssScore || 0), 0);
+        const triggeredCount = canaries.filter(c => c.status === 'triggered').length;
 
         document.getElementById('stat-targets').textContent = targets.length;
         document.getElementById('stat-critical').textContent = critical;
         document.getElementById('stat-highmed').textContent = highmed;
-        document.getElementById('stat-cvss').textContent = maxCvss.toFixed(1);
+        const statCanaries = document.getElementById('stat-canaries');
+        if (statCanaries) {
+            statCanaries.textContent = `${canaries.length}${triggeredCount > 0 ? ` (${triggeredCount} 🚨)` : ''}`;
+        }
 
-        // Dashboard Lists
+        // Dashboard Vulns
         const dashVulns = document.getElementById('dashboard-vulns-list');
         if (dashVulns) {
             if (vulns.length === 0) {
@@ -197,18 +201,21 @@ class WaispStudioApp {
             }
         }
 
-        const dashTargets = document.getElementById('dashboard-targets-list');
-        if (dashTargets) {
-            if (targets.length === 0) {
-                dashTargets.innerHTML = `<p class="text-muted">No audit targets added yet.</p>`;
+        // Dashboard Canaries
+        const dashCanaries = document.getElementById('dashboard-canaries-list');
+        if (dashCanaries) {
+            if (canaries.length === 0) {
+                dashCanaries.innerHTML = `<p class="text-muted">No canaries deployed yet.</p>`;
             } else {
-                dashTargets.innerHTML = targets.slice(0, 5).map(t => `
+                dashCanaries.innerHTML = canaries.slice(0, 5).map(c => `
                     <div style="padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
                         <div>
-                            <strong style="font-size: 0.95rem;">🎯 ${t.name}</strong>
-                            <p class="text-small text-muted">${t.url}</p>
+                            <strong style="font-size: 0.95rem;">🍯 ${c.canaryToken}</strong>
+                            <p class="text-small text-muted">${c.targetUrl}</p>
                         </div>
-                        <span class="logo-badge">${t.provider.toUpperCase()}</span>
+                        <span class="logo-badge" style="${c.status === 'triggered' ? 'background:rgba(239,68,68,0.2); color:var(--danger); font-weight:bold;' : 'background:rgba(16,185,129,0.2); color:#10b981;'}">
+                            ${c.status === 'triggered' ? '🚨 TRIGGERED' : '🟢 ARMED'}
+                        </span>
                     </div>
                 `).join('');
             }
@@ -315,22 +322,76 @@ class WaispStudioApp {
             return;
         }
 
-        grid.innerHTML = canaries.map(c => `
-            <div class="glass card">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px;">
-                    <div style="min-width: 0; flex: 1;">
-                        <h3 style="font-size: 1rem;">🍯 Probe</h3>
-                        <p class="text-small text-muted mt-1" style="word-break: break-all; font-family: monospace; font-weight: 600; color: var(--text);">${c.canaryToken}</p>
+        grid.innerHTML = canaries.map(c => {
+            const isTriggered = c.status === 'triggered';
+            const isExpired = c.status === 'expired';
+            
+            const probeTypeLabels = {
+                http_callback: '🌐 HTTP Callback',
+                dns_probe: '🔍 DNS Probe',
+                header_honeytoken: '🔑 Header Honeytoken',
+                custom_creator: '⚡ Custom Creator Probe'
+            };
+
+            const payloadToCopy = c.probeType === 'custom_creator' && c.customProbeCode ? c.customProbeCode : c.callbackUrl;
+
+            return `
+                <div class="glass card" style="${isTriggered ? 'border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.08); shadow: 0 0 15px rgba(239,68,68,0.2);' : ''}">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                                <h3 style="font-size: 1rem;">🍯 Probe</h3>
+                                <span class="logo-badge" style="${isTriggered ? 'background:rgba(239,68,68,0.25); color:var(--danger); font-weight:bold;' : (isExpired ? 'background:rgba(255,255,255,0.1); color:var(--text-muted);' : 'background:rgba(16,185,129,0.2); color:#10b981; font-weight:bold;')}">
+                                    ${isTriggered ? '🚨 TRIGGERED' : (isExpired ? '⏳ EXPIRED' : '🟢 ARMED')}
+                                </span>
+                                <span class="logo-badge" style="background:rgba(250,204,21,0.15); color:var(--accent);">${probeTypeLabels[c.probeType] || 'HTTP Callback'}</span>
+                            </div>
+                            <p class="text-small text-muted mt-2" style="word-break: break-all; font-family: monospace; font-weight: 600; color: var(--text);">${c.canaryToken}</p>
+                        </div>
+                        <div style="display:flex; gap:6px; flex-shrink: 0;">
+                            <button class="btn-sm btn-secondary" onclick="app.editCanaryProbe('${c.id}')" title="Edit Probe"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn-sm btn-secondary" onclick="app.deleteCanaryProbe('${c.id}')" title="Delete Probe"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>
-                    <div style="display:flex; gap:6px; flex-shrink: 0;">
-                        <button class="btn-sm btn-secondary" onclick="app.editCanaryProbe('${c.id}')" title="Edit Probe"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-sm btn-secondary" onclick="app.deleteCanaryProbe('${c.id}')" title="Delete Probe"><i class="fa-solid fa-trash"></i></button>
-                    </div>
+
+                    <p class="text-small text-muted mt-3" style="word-break: break-all;"><strong>Target URL:</strong> ${c.targetUrl}</p>
+                    <p class="text-small text-accent mt-2" style="word-break: break-all;"><strong>Callback URL:</strong> <code class="code-badge">${c.callbackUrl}</code></p>
+                    
+                    ${c.ttlHours ? `<p class="text-small text-muted mt-2"><strong>TTL Expiration:</strong> ${c.ttlHours} hours ${c.expiresAt ? `(Expires: ${new Date(c.expiresAt).toLocaleDateString()})` : ''}</p>` : `<p class="text-small text-muted mt-2"><strong>TTL:</strong> Permanent</p>`}
+                    
+                    ${c.notificationChannels ? `<p class="text-small text-muted mt-1"><strong>Alert Channels:</strong> ${c.notificationChannels.map(ch => ch.toUpperCase()).join(', ')}</p>` : ''}
+
+                    ${isTriggered ? `
+                        <div class="mt-4 p-3" style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); border-radius: 8px;">
+                            <p class="text-small text-danger"><strong>🚨 TRIGGER DETECTED!</strong> Data exfiltration confirmed!</p>
+                            <p class="text-small text-muted mt-1"><strong>Triggered At:</strong> ${new Date(c.triggeredAt).toLocaleString()}</p>
+                            <p class="text-small text-muted mt-1"><strong>Source IP:</strong> \`${c.sourceIp || '198.51.100.42'}\`</p>
+                            <p class="text-small text-muted mt-1"><strong>User Agent:</strong> \`${c.userAgent || 'Mozilla/5.0 Audit Agent'}\`</p>
+                            <button class="btn btn-sm btn-primary mt-3" style="background: var(--danger);" onclick="app.revokeCanaryAlarm('${c.id}')">
+                                <i class="fa-solid fa-shield"></i> Reset Alarm (Revoke to ARMED)
+                            </button>
+                        </div>
+                    ` : `
+                        <div class="mt-4 flex gap-2" style="flex-wrap: wrap;">
+                            <button class="btn btn-sm btn-secondary" onclick="app.copyToClipboard('${payloadToCopy}')">
+                                <i class="fa-solid fa-copy"></i> Copy Payload
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="app.simulateCanaryTrigger('${c.id}')">
+                                <i class="fa-solid fa-bolt"></i> Test Trigger Alarm
+                            </button>
+                        </div>
+                    `}
                 </div>
-                <p class="text-small text-muted mt-3" style="word-break: break-all;"><strong>Target:</strong> ${c.targetUrl}</p>
-                <p class="text-small text-accent mt-2" style="word-break: break-all;"><strong>Callback URL:</strong> <code class="code-badge">${c.callbackUrl}</code></p>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+    }
+
+    copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            this.showToast('📋 Payload copied to clipboard!', 'success');
+        }).catch(() => {
+            this.showToast('Failed to copy to clipboard', 'warning');
+        });
     }
 
     showToast(message, type = 'info') {
@@ -509,12 +570,41 @@ class WaispStudioApp {
         });
     }
 
-    // NECTAR CANARIES CRUD
+    // NECTAR CANARIES CRUD & ALARM MANAGEMENT
+    toggleCustomProbeCodeField() {
+        const probeType = document.getElementById('canary-probe-type').value;
+        const group = document.getElementById('canary-custom-code-group');
+        if (probeType === 'custom_creator') {
+            group.classList.remove('hidden');
+        } else {
+            group.classList.add('hidden');
+        }
+    }
+
+    toggleWebhookUrlField() {
+        const isChecked = document.getElementById('canary-notify-webhook').checked;
+        const group = document.getElementById('canary-webhook-group');
+        if (isChecked) {
+            group.classList.remove('hidden');
+        } else {
+            group.classList.add('hidden');
+        }
+    }
+
     openNewCanaryModal() {
         document.getElementById('canary-edit-id').value = '';
         document.getElementById('canary-modal-title').textContent = '🍯 Generate NectarCanary Probe';
         document.getElementById('canary-target-url').value = '';
         document.getElementById('canary-token').value = '';
+        document.getElementById('canary-probe-type').value = 'http_callback';
+        document.getElementById('canary-custom-code').value = '';
+        document.getElementById('canary-ttl').value = '0';
+        document.getElementById('canary-notify-console').checked = true;
+        document.getElementById('canary-notify-issue').checked = true;
+        document.getElementById('canary-notify-webhook').checked = false;
+        document.getElementById('canary-webhook-url').value = '';
+        this.toggleCustomProbeCodeField();
+        this.toggleWebhookUrlField();
         document.getElementById('modal-canary').classList.remove('hidden');
     }
 
@@ -525,6 +615,18 @@ class WaispStudioApp {
         document.getElementById('canary-modal-title').textContent = '🍯 Edit NectarCanary Probe';
         document.getElementById('canary-target-url').value = canary.targetUrl;
         document.getElementById('canary-token').value = canary.canaryToken;
+        document.getElementById('canary-probe-type').value = canary.probeType || 'http_callback';
+        document.getElementById('canary-custom-code').value = canary.customProbeCode || '';
+        document.getElementById('canary-ttl').value = canary.ttlHours || 0;
+        
+        const channels = canary.notificationChannels || ['console'];
+        document.getElementById('canary-notify-console').checked = channels.includes('console');
+        document.getElementById('canary-notify-issue').checked = channels.includes('github_issue');
+        document.getElementById('canary-notify-webhook').checked = channels.includes('webhook');
+        document.getElementById('canary-webhook-url').value = canary.webhookUrl || '';
+
+        this.toggleCustomProbeCodeField();
+        this.toggleWebhookUrlField();
         document.getElementById('modal-canary').classList.remove('hidden');
     }
 
@@ -532,6 +634,9 @@ class WaispStudioApp {
         const editId = document.getElementById('canary-edit-id').value;
         const targetUrl = document.getElementById('canary-target-url').value.trim();
         let token = document.getElementById('canary-token').value.trim();
+        const probeType = document.getElementById('canary-probe-type').value;
+        const customProbeCode = document.getElementById('canary-custom-code').value.trim();
+        const ttlHours = parseInt(document.getElementById('canary-ttl').value) || 0;
 
         if (!targetUrl) {
             this.showToast('Please enter a target URL for the canary probe', 'warning');
@@ -545,18 +650,83 @@ class WaispStudioApp {
         const id = editId || ('canary-' + Math.random().toString(36).substring(2, 9));
         const callbackUrl = `https://waisp-canary.terra.internal/probe/${token}`;
 
+        const notificationChannels = [];
+        if (document.getElementById('canary-notify-console').checked) notificationChannels.push('console');
+        if (document.getElementById('canary-notify-issue').checked) notificationChannels.push('github_issue');
+        if (document.getElementById('canary-notify-webhook').checked) notificationChannels.push('webhook');
+
+        const webhookUrl = document.getElementById('canary-webhook-url').value.trim();
+        const expiresAt = ttlHours > 0 ? new Date(Date.now() + ttlHours * 3600 * 1000).toISOString() : undefined;
+
         this.state.canaries[id] = {
             id,
             canaryToken: token,
             targetUrl,
             callbackUrl,
+            probeType,
+            customProbeCode: probeType === 'custom_creator' ? customProbeCode : undefined,
+            ttlHours,
+            expiresAt,
+            notificationChannels,
+            webhookUrl: notificationChannels.includes('webhook') ? webhookUrl : undefined,
             status: editId ? (this.state.canaries[id]?.status || 'armed') : 'armed',
             createdAt: editId ? (this.state.canaries[id]?.createdAt || new Date().toISOString()) : new Date().toISOString()
         };
 
         this.closeModals();
         this.renderAll();
-        this.showToast(`🍯 Canary Probe "${token}" ${editId ? 'updated' : 'generated'}!`, 'success');
+        this.showToast(`🍯 Canary Probe "${token}" ${editId ? 'updated' : 'armed & deployed'}!`, 'success');
+        await this.syncVaultState();
+    }
+
+    async simulateCanaryTrigger(id) {
+        const canary = this.state.canaries[id];
+        if (!canary) return;
+
+        canary.status = 'triggered';
+        canary.triggeredAt = new Date().toISOString();
+        canary.sourceIp = '198.51.100.42 (Simulated Out-of-Band Callback)';
+        canary.userAgent = 'Mozilla/5.0 (WAISP Active Canary Test Probe)';
+
+        // Create critical vulnerability finding in vault
+        const vulnId = 'vuln-canary-' + Math.random().toString(36).substring(2, 9);
+        this.state.vulnerabilities[vulnId] = {
+            id: vulnId,
+            targetId: canary.id,
+            targetUrl: canary.targetUrl,
+            title: `🚨 Out-of-Band Data Exfiltration Confirmed (NectarCanary: ${canary.canaryToken})`,
+            severity: 'CRITICAL',
+            cvssScore: 10.0,
+            stingerModule: 'dast',
+            description: `NectarCanary active probe triggered! Remote server executed out-of-band request to callback ${canary.callbackUrl}.`,
+            evidence: {
+                endpoint: canary.callbackUrl,
+                statusCode: 200,
+                headers: { 'X-WAISP-Canary-Trigger': canary.canaryToken }
+            },
+            suggestedPatch: 'Sanitize server-side inputs to prevent SSRF and out-of-band HTTP requests.',
+            remediationSteps: ['Disable remote URL fetch', 'Enforce strict domain whitelist'],
+            status: 'open',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        this.renderAll();
+        this.showToast(`🚨 ALERT! NectarCanary ${canary.canaryToken} was TRIGGERED! Vulnerability reported.`, 'danger');
+        await this.syncVaultState();
+    }
+
+    async revokeCanaryAlarm(id) {
+        const canary = this.state.canaries[id];
+        if (!canary) return;
+
+        canary.status = 'armed';
+        canary.triggeredAt = undefined;
+        canary.sourceIp = undefined;
+        canary.userAgent = undefined;
+
+        this.renderAll();
+        this.showToast(`🟢 Canary Probe "${canary.canaryToken}" alarm revoked & re-armed!`, 'success');
         await this.syncVaultState();
     }
 
@@ -594,6 +764,23 @@ class WaispStudioApp {
         }
 
         targetSelect.innerHTML = targets.map(t => `<option value="${t.id}">${t.name} (${t.url})</option>`).join('');
+
+        // Populate Venom Templates in Scan Modal
+        const venomContainer = document.getElementById('scan-venom-templates-list');
+        if (venomContainer) {
+            const templates = this.state.customVenomTemplates || [];
+            if (templates.length === 0) {
+                venomContainer.innerHTML = `<p class="text-small text-muted">No custom Venom templates registered. Default library will be used.</p>`;
+            } else {
+                venomContainer.innerHTML = templates.map(tmpl => `
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" class="scan-venom-chk" value="${tmpl.id}" checked>
+                        🧪 ${tmpl.name} <span class="logo-badge" style="font-size:0.65rem;">${tmpl.severity}</span>
+                    </label>
+                `).join('');
+            }
+        }
+
         document.getElementById('modal-scan').classList.remove('hidden');
     }
 
@@ -602,10 +789,12 @@ class WaispStudioApp {
         const target = this.state.targets[targetId];
         if (!target) return;
 
+        // Collect selected Venom templates
+        const selectedVenoms = Array.from(document.querySelectorAll('.scan-venom-chk:checked')).map(c => c.value);
+
         this.closeModals();
-        this.showToast(`⚡ Starting WAISP Hornet scan against ${target.name}... Check findings in Vulnerabilities tab!`, 'info');
+        this.showToast(`⚡ Starting WAISP Hornet scan against ${target.name} (${selectedVenoms.length} custom Venom templates active)...`, 'info');
         
-        // Simulating quick client-side scan checks for web console
         const vulns = [];
         if (document.getElementById('mod-recon')?.checked) {
             vulns.push({
@@ -626,9 +815,36 @@ class WaispStudioApp {
             });
         }
 
+        // Run selected custom Venom templates
+        selectedVenoms.forEach(vId => {
+            const tmpl = (this.state.customVenomTemplates || []).find(t => t.id === vId);
+            if (tmpl) {
+                vulns.push({
+                    id: 'vuln-venom-' + Math.random().toString(36).substring(2, 9),
+                    targetId: target.id,
+                    targetUrl: target.url,
+                    title: `Custom Venom Finding: ${tmpl.name}`,
+                    severity: tmpl.severity,
+                    cvssScore: tmpl.cvssScore,
+                    stingerModule: tmpl.category || 'dast',
+                    description: tmpl.description || 'Custom attack payload triggered finding.',
+                    evidence: {
+                        endpoint: target.url,
+                        payload: Array.isArray(tmpl.payloads) ? tmpl.payloads[0] : tmpl.payloads,
+                        statusCode: 200
+                    },
+                    suggestedPatch: tmpl.remediationTemplate || 'Sanitize user inputs and restrict internal network access.',
+                    remediationSteps: ['Enforce input validation', 'Review access controls'],
+                    status: 'open',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+            }
+        });
+
         vulns.forEach(v => this.state.vulnerabilities[v.id] = v);
         this.renderAll();
-        this.showToast(`🛡️ Scan completed! Found ${vulns.length} new vulnerability items.`, 'success');
+        this.showToast(`🛡️ Scan completed! Found ${vulns.length} security findings.`, 'success');
         await this.syncVaultState();
     }
 

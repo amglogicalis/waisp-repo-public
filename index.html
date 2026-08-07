@@ -100,10 +100,10 @@
                             </div>
                         </div>
                         <div class="stat-card glass">
-                            <div class="stat-icon text-accent"><i class="fa-solid fa-gauge-high"></i></div>
+                            <div class="stat-icon text-accent"><i class="fa-solid fa-cookie-bite"></i></div>
                             <div class="stat-info">
-                                <span class="stat-label">Max CVSS Score</span>
-                                <span class="stat-value text-accent" id="stat-cvss">0.0</span>
+                                <span class="stat-label">Canary Probes</span>
+                                <span class="stat-value text-accent" id="stat-canaries">0</span>
                             </div>
                         </div>
                     </div>
@@ -117,9 +117,9 @@
                         </div>
 
                         <div class="card glass">
-                            <h3><i class="fa-solid fa-crosshairs text-primary"></i> Active Audit Targets</h3>
-                            <div id="dashboard-targets-list" class="mt-4">
-                                <p class="text-muted">No audit targets added yet.</p>
+                            <h3><i class="fa-solid fa-cookie-bite text-accent"></i> Active & Triggered Canaries</h3>
+                            <div id="dashboard-canaries-list" class="mt-4">
+                                <p class="text-muted">No canaries deployed yet.</p>
                             </div>
                         </div>
                     </div>
@@ -263,6 +263,12 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label>Select Custom Venom Templates to Inject</label>
+                    <div id="scan-venom-templates-list" class="checkbox-group mt-2">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+                <div class="form-group">
                     <label><input type="checkbox" id="scan-create-issues"> Create GitHub Issues automatically with Hivuard</label>
                 </div>
             </div>
@@ -341,10 +347,44 @@
                     <label>Canary Token (Auto-generated if empty)</label>
                     <input type="text" id="canary-token" class="input" placeholder="waisp_canary_custom_token">
                 </div>
+                <div class="form-group">
+                    <label>Probe Type</label>
+                    <select id="canary-probe-type" class="input" onchange="app.toggleCustomProbeCodeField()">
+                        <option value="http_callback">HTTP Callback Probe (SSRF / Out-of-Band)</option>
+                        <option value="dns_probe">DNS Resolution Probe (Exfiltration via Subdomain)</option>
+                        <option value="header_honeytoken">Header Honeytoken (Log Leak Detection)</option>
+                        <option value="custom_creator">Custom Creator Probe (User Payload Code)</option>
+                    </select>
+                </div>
+                <div id="canary-custom-code-group" class="form-group hidden">
+                    <label>Custom Creator Probe Code / Script</label>
+                    <textarea id="canary-custom-code" class="input" rows="3" placeholder="// Custom JavaScript or Shell payload developed by creator&#10;fetch(callbackUrl, { headers: { 'X-WAISP-Canary': token } });"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Time-To-Live Expiration (TTL Hours)</label>
+                    <select id="canary-ttl" class="input">
+                        <option value="0">Permanent (No expiration)</option>
+                        <option value="24">24 Hours (1 Day)</option>
+                        <option value="72">72 Hours (3 Days)</option>
+                        <option value="168">168 Hours (7 Days)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notification & Alert Channels</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="canary-notify-console" checked> 🎛️ Dashboard Console Alert</label>
+                        <label><input type="checkbox" id="canary-notify-issue" checked> 🛡️ Create GitHub Issue via Hivuard</label>
+                        <label><input type="checkbox" id="canary-notify-webhook" onchange="app.toggleWebhookUrlField()"> 🔔 Webhook HTTP POST</label>
+                    </div>
+                </div>
+                <div id="canary-webhook-group" class="form-group hidden">
+                    <label>Webhook Alert URL</label>
+                    <input type="url" id="canary-webhook-url" class="input" placeholder="https://api.mycompany.com/webhooks/security">
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
-                <button class="btn btn-primary" onclick="app.saveCanaryProbe()">Generate Probe</button>
+                <button class="btn btn-primary" onclick="app.saveCanaryProbe()">Save & Arm Probe</button>
             </div>
         </div>
     </div>
