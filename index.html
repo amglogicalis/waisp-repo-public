@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAISP Nest Studio — Hornet Security Engine ($0 DAST & Red Teaming)</title>
+    <link rel="icon" type="image/png" href="assets/logo_waisp.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v=1.0.0">
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-shield-halved text-primary" style="font-size: 1.6rem;"></i>
+                <span>WAISP <span class="logo-badge">Nest v1.0.0</span></span>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-view="dashboard">
+                    <i class="fa-solid fa-chart-line"></i> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-view="targets">
+                    <i class="fa-solid fa-crosshairs"></i> Targets
+                </a>
+                <a href="#" class="nav-item" data-view="vulnerabilities">
+                    <i class="fa-solid fa-bug"></i> Vulnerabilities
+                </a>
+                <a href="#" class="nav-item" data-view="custom-templates">
+                    <i class="fa-solid fa-vial"></i> Venom Templates
+                </a>
+                <a href="#" class="nav-item" data-view="canaries">
+                    <i class="fa-solid fa-cookie-bite"></i> Nectar Canaries
+                </a>
+                <a href="#" class="nav-item" data-view="settings">
+                    <i class="fa-solid fa-sliders"></i> Settings
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile" id="user-profile">
+                    <div class="avatar-placeholder"><i class="fa-brands fa-github"></i></div>
+                    <div class="user-info">
+                        <span class="user-name">Disconnected</span>
+                        <span class="user-status text-muted">Enter PAT Token</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="token-group" id="token-group">
+                    <input type="password" id="github-token" placeholder="GitHub PAT Token (repo, workflow)" class="input-token">
+                    <button id="btn-connect" class="btn btn-primary btn-sm"><i class="fa-solid fa-key"></i> Connect</button>
+                </div>
+                <button id="btn-disconnect" class="btn btn-secondary btn-sm hidden"><i class="fa-solid fa-right-from-bracket"></i> Disconnect</button>
+            </header>
+
+            <div class="content-body">
+                <!-- Dashboard View -->
+                <section id="view-dashboard" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h2>🛡️ Hornet Security Overview</h2>
+                            <p class="text-muted">Dynamic Application Security Testing & Vulnerability Triage</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="app.openNewScanModal()">
+                            <i class="fa-solid fa-bolt"></i> Run Security Scan
+                        </button>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card glass">
+                            <div class="stat-icon"><i class="fa-solid fa-crosshairs"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Total Targets</span>
+                                <span class="stat-value" id="stat-targets">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card glass">
+                            <div class="stat-icon text-danger"><i class="fa-solid fa-bug"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Critical Vulns</span>
+                                <span class="stat-value text-danger" id="stat-critical">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card glass">
+                            <div class="stat-icon text-warning"><i class="fa-solid fa-shield-virus"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">High / Med Vulns</span>
+                                <span class="stat-value text-warning" id="stat-highmed">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card glass">
+                            <div class="stat-icon text-accent"><i class="fa-solid fa-gauge-high"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Max CVSS Score</span>
+                                <span class="stat-value text-accent" id="stat-cvss">0.0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-layout mt-6">
+                        <div class="card glass">
+                            <h3><i class="fa-solid fa-bug text-danger"></i> Recent Vulnerability Findings</h3>
+                            <div id="dashboard-vulns-list" class="mt-4">
+                                <p class="text-muted">No security findings recorded yet.</p>
+                            </div>
+                        </div>
+
+                        <div class="card glass">
+                            <h3><i class="fa-solid fa-crosshairs text-primary"></i> Active Audit Targets</h3>
+                            <div id="dashboard-targets-list" class="mt-4">
+                                <p class="text-muted">No audit targets added yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Targets View -->
+                <section id="view-targets" class="view-section hidden">
+                    <div class="section-header">
+                        <h2>🎯 Audit Targets Directory</h2>
+                        <button class="btn btn-primary" onclick="app.openNewTargetModal()">
+                            <i class="fa-solid fa-plus"></i> Add Target
+                        </button>
+                    </div>
+                    <div id="targets-grid" class="cards-grid mt-4">
+                        <!-- Rendered by JS -->
+                    </div>
+                </section>
+
+                <!-- Vulnerabilities View -->
+                <section id="view-vulnerabilities" class="view-section hidden">
+                    <div class="section-header">
+                        <h2>🐛 Vulnerabilities Directory & Hivuard Triage</h2>
+                    </div>
+                    <div id="vulns-grid" class="cards-grid mt-4">
+                        <!-- Rendered by JS -->
+                    </div>
+                </section>
+
+                <!-- Custom Templates View -->
+                <section id="view-custom-templates" class="view-section hidden">
+                    <div class="section-header">
+                        <h2>🧪 Custom VenomPayload Templates</h2>
+                        <button class="btn btn-primary" onclick="app.openNewVenomModal()">
+                            <i class="fa-solid fa-plus"></i> Add Venom Template
+                        </button>
+                    </div>
+                    <div id="venom-templates-grid" class="cards-grid mt-4">
+                        <!-- Rendered by JS -->
+                    </div>
+                </section>
+
+                <!-- Canaries View -->
+                <section id="view-canaries" class="view-section hidden">
+                    <div class="section-header">
+                        <h2>🍯 NectarCanaries Probes</h2>
+                        <button class="btn btn-primary" onclick="app.openNewCanaryModal()">
+                            <i class="fa-solid fa-plus"></i> Generate Canary Probe
+                        </button>
+                    </div>
+                    <div id="canaries-grid" class="cards-grid mt-4">
+                        <!-- Rendered by JS -->
+                    </div>
+                </section>
+
+                <!-- Settings View -->
+                <section id="view-settings" class="view-section hidden">
+                    <div class="section-header">
+                        <h2>⚙️ WAISP Settings & Custom Port Server</h2>
+                    </div>
+                    <div class="card glass mt-4 max-w-xl">
+                        <h3><i class="fa-solid fa-server"></i> Local Server Config</h3>
+                        <p class="text-muted mt-2">Configure the local CLI server port for WAISP Nest Studio.</p>
+                        <div class="form-group mt-4">
+                            <label>Default CLI Studio Port</label>
+                            <input type="number" id="setting-port" class="input" value="3722">
+                        </div>
+                        <button class="btn btn-primary mt-4" onclick="app.saveSettings()">Save Settings</button>
+                    </div>
+                </section>
+            </div>
+
+            <footer class="footer">
+                <span>Powered by Terra Ecosystem • WAISP Nest v1.0.0 • $0 Security Infrastructure</span>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-target" class="modal-backdrop hidden">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3 id="target-modal-title">🎯 Add Audit Target</h3>
+                <button class="btn-close" onclick="app.closeModals()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="target-edit-id">
+                <div class="form-group">
+                    <label>Target Name</label>
+                    <input type="text" id="target-name" class="input" placeholder="My Production Web App">
+                </div>
+                <div class="form-group">
+                    <label>Target URL</label>
+                    <input type="url" id="target-url" class="input" placeholder="https://myapp.example.com">
+                </div>
+                <div class="form-group">
+                    <label>Environment</label>
+                    <select id="target-env" class="input">
+                        <option value="production">Production</option>
+                        <option value="staging">Staging</option>
+                        <option value="development">Development</option>
+                        <option value="local">Local</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Provider</label>
+                    <select id="target-provider" class="input">
+                        <option value="terra">Terra (Webbl / Cocoon)</option>
+                        <option value="aws">AWS (CloudFront / S3 / EC2)</option>
+                        <option value="cloudflare">Cloudflare Workers</option>
+                        <option value="vercel">Vercel</option>
+                        <option value="custom">Custom Server / Docker</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.saveTarget()">Save Target</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-scan" class="modal-backdrop hidden">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3>⚡ Execute Security Scan</h3>
+                <button class="btn-close" onclick="app.closeModals()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Select Target</label>
+                    <select id="scan-target-id" class="input"></select>
+                </div>
+                <div class="form-group">
+                    <label>Stinger Modules to Run</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="mod-recon" checked> 🗡️ Stinger-ReconShield (Headers, WAF, TLS)</label>
+                        <label><input type="checkbox" id="mod-dast" checked> 🗡️ Stinger-DastFuzzer (XSS, SQLi, OpenRedirect)</label>
+                        <label><input type="checkbox" id="mod-api" checked> 🗡️ Stinger-ApiInspector (Swagger, OpenAPI)</label>
+                        <label><input type="checkbox" id="mod-runtime" checked> 🗡️ Stinger-RuntimeLeaks (DOM Tokens, Secret Leak)</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="scan-create-issues"> Create GitHub Issues automatically with Hivuard</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.runScanFromModal()"><i class="fa-solid fa-play"></i> Start Scan</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=1.0.0"></script>
+</body>
+</html>
