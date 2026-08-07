@@ -227,15 +227,17 @@ class WaispStudioApp {
 
         grid.innerHTML = targets.map(t => `
             <div class="glass card">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <h3>🎯 ${t.name}</h3>
-                    <div style="display:flex; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px;">
+                    <div style="min-width: 0; flex: 1;">
+                        <h3 style="word-break: break-word;">🎯 ${t.name}</h3>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-shrink: 0;">
                         <button class="btn-sm btn-secondary" onclick="app.editTarget('${t.id}')" title="Edit Target"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn-sm btn-secondary" onclick="app.deleteTarget('${t.id}')" title="Delete Target"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
-                <p class="text-small text-muted mt-2">${t.url}</p>
-                <div class="mt-4 flex gap-2">
+                <p class="text-small text-muted mt-2" style="word-break: break-all;">${t.url}</p>
+                <div class="mt-4 flex gap-2" style="flex-wrap: wrap;">
                     <span class="logo-badge">${(t.environment || 'prod').toUpperCase()}</span>
                     <span class="logo-badge" style="background:rgba(250,204,21,0.15); color:var(--accent);">${(t.provider || 'terra').toUpperCase()}</span>
                 </div>
@@ -255,19 +257,19 @@ class WaispStudioApp {
 
         grid.innerHTML = vulns.map(v => `
             <div class="glass card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px; flex-wrap: wrap;">
                     <span class="logo-badge" style="background:rgba(208,19,54,0.2); color:var(--primary); font-weight:bold;">${v.severity} (${v.cvssScore})</span>
                     <div style="display:flex; gap:6px; align-items:center;">
                         <span class="text-small text-muted">${(v.stingerModule || 'dast').toUpperCase()}</span>
                         <button class="btn-sm btn-secondary" onclick="app.deleteVulnerability('${v.id}')" title="Delete Finding"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
-                <h3 class="mt-2">${v.title}</h3>
+                <h3 class="mt-2" style="word-break: break-word;">${v.title}</h3>
                 <p class="text-small text-muted mt-2">${v.description}</p>
                 <div class="mt-4">
-                    <p class="text-small"><strong>Endpoint:</strong> \`${v.evidence?.endpoint || v.targetUrl}\`</p>
+                    <p class="text-small" style="word-break: break-all;"><strong>Endpoint:</strong> <code class="code-badge">${v.evidence?.endpoint || v.targetUrl}</code></p>
                 </div>
-                <div class="mt-4 p-2" style="background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:0.8rem;">
+                <div class="mt-4 p-2" style="background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:0.8rem; word-break: break-word;">
                     ${v.suggestedPatch || 'Remediation patch instructions available.'}
                 </div>
             </div>
@@ -284,21 +286,21 @@ class WaispStudioApp {
             return;
         }
 
-        grid.innerHTML = templates.map((tmpl, idx) => `
+        grid.innerHTML = templates.map((tmpl) => `
             <div class="glass card">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px;">
                     <div>
                         <span class="logo-badge">${(tmpl.category || 'dast').toUpperCase()}</span>
                         <span class="logo-badge" style="background:rgba(208,19,54,0.2); color:var(--primary);">${tmpl.severity} (${tmpl.cvssScore})</span>
                     </div>
-                    <div style="display:flex; gap:6px;">
+                    <div style="display:flex; gap:6px; flex-shrink: 0;">
                         <button class="btn-sm btn-secondary" onclick="app.editVenomTemplate('${tmpl.id}')" title="Edit Template"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn-sm btn-secondary" onclick="app.deleteVenomTemplate('${tmpl.id}')" title="Delete Template"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
-                <h3 class="mt-2">🧪 ${tmpl.name}</h3>
+                <h3 class="mt-2" style="word-break: break-word;">🧪 ${tmpl.name}</h3>
                 <p class="text-small text-muted mt-2">${tmpl.description}</p>
-                <p class="text-small mt-2"><strong>Payloads:</strong> \`${tmpl.payloads ? (Array.isArray(tmpl.payloads) ? tmpl.payloads.join(', ') : tmpl.payloads) : 'N/A'}\`</p>
+                <p class="text-small mt-2" style="word-break: break-all;"><strong>Payloads:</strong> <code class="code-badge">${tmpl.payloads ? (Array.isArray(tmpl.payloads) ? tmpl.payloads.join(', ') : tmpl.payloads) : 'N/A'}</code></p>
             </div>
         `).join('');
     }
@@ -315,15 +317,18 @@ class WaispStudioApp {
 
         grid.innerHTML = canaries.map(c => `
             <div class="glass card">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <h3>🍯 Probe: ${c.canaryToken}</h3>
-                    <div style="display:flex; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px;">
+                    <div style="min-width: 0; flex: 1;">
+                        <h3 style="font-size: 1rem;">🍯 Probe</h3>
+                        <p class="text-small text-muted mt-1" style="word-break: break-all; font-family: monospace; font-weight: 600; color: var(--text);">${c.canaryToken}</p>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-shrink: 0;">
                         <button class="btn-sm btn-secondary" onclick="app.editCanaryProbe('${c.id}')" title="Edit Probe"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn-sm btn-secondary" onclick="app.deleteCanaryProbe('${c.id}')" title="Delete Probe"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
-                <p class="text-small text-muted mt-2">Target: ${c.targetUrl}</p>
-                <p class="text-small text-accent mt-2"><strong>Callback URL:</strong> \`${c.callbackUrl}\`</p>
+                <p class="text-small text-muted mt-3" style="word-break: break-all;"><strong>Target:</strong> ${c.targetUrl}</p>
+                <p class="text-small text-accent mt-2" style="word-break: break-all;"><strong>Callback URL:</strong> <code class="code-badge">${c.callbackUrl}</code></p>
             </div>
         `).join('');
     }
