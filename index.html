@@ -273,6 +273,22 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.0.0"></script>
+    <div id="modal-confirm" class="modal-backdrop hidden">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3 id="confirm-modal-title">⚠️ Confirmation Required</h3>
+                <button class="btn-close" onclick="app.closeModals()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-modal-message" class="text-muted">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                <button id="btn-confirm-action" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=1.0.3"></script>
 </body>
 </html>

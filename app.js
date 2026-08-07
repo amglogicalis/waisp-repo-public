@@ -310,6 +310,51 @@ class WaispStudioApp {
         `).join('');
     }
 
+    showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const icons = {
+            info: '<i class="fa-solid fa-bolt text-primary"></i>',
+            success: '<i class="fa-solid fa-circle-check text-accent"></i>',
+            warning: '<i class="fa-solid fa-triangle-exclamation text-warning"></i>',
+            danger: '<i class="fa-solid fa-circle-xmark text-danger"></i>'
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            ${icons[type] || icons.info}
+            <span>${message}</span>
+        `;
+
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+
+    showConfirmModal(message, title = '⚠️ Confirmation Required', onConfirm) {
+        const titleEl = document.getElementById('confirm-modal-title');
+        const msgEl = document.getElementById('confirm-modal-message');
+        if (titleEl) titleEl.textContent = title;
+        if (msgEl) msgEl.textContent = message;
+
+        const btnAction = document.getElementById('btn-confirm-action');
+        if (btnAction) {
+            const newBtn = btnAction.cloneNode(true);
+            btnAction.parentNode.replaceChild(newBtn, btnAction);
+            newBtn.addEventListener('click', () => {
+                this.closeModals();
+                if (onConfirm) onConfirm();
+            });
+        }
+
+        document.getElementById('modal-confirm')?.classList.remove('hidden');
+    }
+
     openNewTargetModal() {
         document.getElementById('target-name').value = '';
         document.getElementById('target-url').value = '';
@@ -323,7 +368,7 @@ class WaispStudioApp {
         const provider = document.getElementById('target-provider').value;
 
         if (!name || !url) {
-            alert('Please enter target name and target URL');
+            this.showToast('Please enter target name and target URL', 'warning');
             return;
         }
 
@@ -340,21 +385,27 @@ class WaispStudioApp {
 
         this.closeModals();
         this.renderAll();
+        this.showToast(`🎯 Target "${name}" added successfully!`, 'success');
         await this.syncVaultState();
     }
 
     async deleteTarget(id) {
-        if (!confirm('Are you sure you want to delete this audit target?')) return;
-        delete this.state.targets[id];
-        this.renderAll();
-        await this.syncVaultState();
+        const target = this.state.targets[id];
+        const targetName = target ? target.name : 'this target';
+
+        this.showConfirmModal(`Are you sure you want to delete "${targetName}" from your audit targets?`, '🗑️ Delete Audit Target', async () => {
+            delete this.state.targets[id];
+            this.renderAll();
+            this.showToast(`Target "${targetName}" deleted`, 'info');
+            await this.syncVaultState();
+        });
     }
 
     openNewScanModal() {
         const targetSelect = document.getElementById('scan-target-id');
         const targets = Object.values(this.state.targets || {});
         if (targets.length === 0) {
-            alert('Please add an audit target first!');
+            this.showToast('Please add an audit target first!', 'warning');
             return;
         }
 
@@ -368,7 +419,7 @@ class WaispStudioApp {
         if (!target) return;
 
         this.closeModals();
-        alert(`⚡ Starting WAISP Hornet scan against ${target.name}... Check findings in Vulnerabilities tab!`);
+        this.showToast(`⚡ Starting WAISP Hornet scan against ${target.name}... Check findings in Vulnerabilities tab!`, 'info');
         
         // Simulating quick client-side scan checks for web console
         const vulns = [];
@@ -393,6 +444,7 @@ class WaispStudioApp {
 
         vulns.forEach(v => this.state.vulnerabilities[v.id] = v);
         this.renderAll();
+        this.showToast(`🛡️ Scan completed! Found ${vulns.length} new vulnerability items.`, 'success');
         await this.syncVaultState();
     }
 
@@ -403,7 +455,7 @@ class WaispStudioApp {
     saveSettings() {
         const port = document.getElementById('setting-port').value;
         localStorage.setItem('waisp_port', port);
-        alert(`Settings saved! CLI default studio port set to: ${port}`);
+        this.showToast(`Settings saved! CLI default studio port set to: ${port}`, 'success');
     }
 }
 
