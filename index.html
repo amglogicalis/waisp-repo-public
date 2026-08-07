@@ -273,6 +273,82 @@
         </div>
     </div>
 
+    <!-- Modal Venom Template -->
+    <div id="modal-venom" class="modal-backdrop hidden">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3 id="venom-modal-title">🧪 Create Custom Venom Template</h3>
+                <button class="btn-close" onclick="app.closeModals()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="venom-edit-id">
+                <div class="form-group">
+                    <label>Template Name</label>
+                    <input type="text" id="venom-name" class="input" placeholder="Custom SSRF / XSS Probe">
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="venom-category" class="input">
+                        <option value="dast">DAST (Fuzzing)</option>
+                        <option value="recon">Reconnaissance</option>
+                        <option value="api">API Inspection</option>
+                        <option value="runtime">Runtime Leaks</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Severity</label>
+                    <select id="venom-severity" class="input">
+                        <option value="CRITICAL">CRITICAL</option>
+                        <option value="HIGH">HIGH</option>
+                        <option value="MEDIUM">MEDIUM</option>
+                        <option value="LOW">LOW</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>CVSS v3.1 Base Score (0.0 - 10.0)</label>
+                    <input type="number" step="0.1" id="venom-cvss" class="input" value="7.5" min="0" max="10">
+                </div>
+                <div class="form-group">
+                    <label>Payloads (Comma-separated)</label>
+                    <input type="text" id="venom-payloads" class="input" placeholder="payload1, payload2">
+                </div>
+                <div class="form-group">
+                    <label>Description & Remediation Guidance</label>
+                    <input type="text" id="venom-description" class="input" placeholder="Description of the attack pattern">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.saveVenomTemplate()">Save Template</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nectar Canary -->
+    <div id="modal-canary" class="modal-backdrop hidden">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3 id="canary-modal-title">🍯 Generate NectarCanary Probe</h3>
+                <button class="btn-close" onclick="app.closeModals()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="canary-edit-id">
+                <div class="form-group">
+                    <label>Target URL</label>
+                    <input type="url" id="canary-target-url" class="input" placeholder="https://myapp.example.com">
+                </div>
+                <div class="form-group">
+                    <label>Canary Token (Auto-generated if empty)</label>
+                    <input type="text" id="canary-token" class="input" placeholder="waisp_canary_custom_token">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.saveCanaryProbe()">Generate Probe</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-confirm" class="modal-backdrop hidden">
         <div class="modal glass">
             <div class="modal-header">

@@ -229,12 +229,15 @@ class WaispStudioApp {
             <div class="glass card">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h3>🎯 ${t.name}</h3>
-                    <button class="btn-sm btn-secondary" onclick="app.deleteTarget('${t.id}')" title="Delete Target"><i class="fa-solid fa-trash"></i></button>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-sm btn-secondary" onclick="app.editTarget('${t.id}')" title="Edit Target"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-sm btn-secondary" onclick="app.deleteTarget('${t.id}')" title="Delete Target"><i class="fa-solid fa-trash"></i></button>
+                    </div>
                 </div>
                 <p class="text-small text-muted mt-2">${t.url}</p>
                 <div class="mt-4 flex gap-2">
-                    <span class="logo-badge">${t.environment.toUpperCase()}</span>
-                    <span class="logo-badge" style="background:rgba(250,204,21,0.15); color:var(--accent);">${t.provider.toUpperCase()}</span>
+                    <span class="logo-badge">${(t.environment || 'prod').toUpperCase()}</span>
+                    <span class="logo-badge" style="background:rgba(250,204,21,0.15); color:var(--accent);">${(t.provider || 'terra').toUpperCase()}</span>
                 </div>
             </div>
         `).join('');
@@ -252,9 +255,12 @@ class WaispStudioApp {
 
         grid.innerHTML = vulns.map(v => `
             <div class="glass card">
-                <div style="display:flex; justify-content:space-between;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span class="logo-badge" style="background:rgba(208,19,54,0.2); color:var(--primary); font-weight:bold;">${v.severity} (${v.cvssScore})</span>
-                    <span class="text-small text-muted">${v.stingerModule.toUpperCase()}</span>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <span class="text-small text-muted">${(v.stingerModule || 'dast').toUpperCase()}</span>
+                        <button class="btn-sm btn-secondary" onclick="app.deleteVulnerability('${v.id}')" title="Delete Finding"><i class="fa-solid fa-trash"></i></button>
+                    </div>
                 </div>
                 <h3 class="mt-2">${v.title}</h3>
                 <p class="text-small text-muted mt-2">${v.description}</p>
@@ -274,19 +280,25 @@ class WaispStudioApp {
 
         const templates = this.state.customVenomTemplates || [];
         if (templates.length === 0) {
-            grid.innerHTML = `<p class="text-muted">No custom VenomPayload templates registered yet.</p>`;
+            grid.innerHTML = `<p class="text-muted">No custom VenomPayload templates registered yet. Click "Add Venom Template" to register one.</p>`;
             return;
         }
 
-        grid.innerHTML = templates.map(tmpl => `
+        grid.innerHTML = templates.map((tmpl, idx) => `
             <div class="glass card">
-                <div style="display:flex; justify-content:space-between;">
-                    <span class="logo-badge">${tmpl.category.toUpperCase()}</span>
-                    <span class="logo-badge" style="background:rgba(208,19,54,0.2); color:var(--primary);">${tmpl.severity} (${tmpl.cvssScore})</span>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <span class="logo-badge">${(tmpl.category || 'dast').toUpperCase()}</span>
+                        <span class="logo-badge" style="background:rgba(208,19,54,0.2); color:var(--primary);">${tmpl.severity} (${tmpl.cvssScore})</span>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-sm btn-secondary" onclick="app.editVenomTemplate('${tmpl.id}')" title="Edit Template"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-sm btn-secondary" onclick="app.deleteVenomTemplate('${tmpl.id}')" title="Delete Template"><i class="fa-solid fa-trash"></i></button>
+                    </div>
                 </div>
                 <h3 class="mt-2">🧪 ${tmpl.name}</h3>
                 <p class="text-small text-muted mt-2">${tmpl.description}</p>
-                <p class="text-small mt-2"><strong>Payloads:</strong> \`${tmpl.payloads ? tmpl.payloads.join(', ') : 'N/A'}\`</p>
+                <p class="text-small mt-2"><strong>Payloads:</strong> \`${tmpl.payloads ? (Array.isArray(tmpl.payloads) ? tmpl.payloads.join(', ') : tmpl.payloads) : 'N/A'}\`</p>
             </div>
         `).join('');
     }
@@ -297,13 +309,19 @@ class WaispStudioApp {
 
         const canaries = Object.values(this.state.canaries || {});
         if (canaries.length === 0) {
-            grid.innerHTML = `<p class="text-muted">No NectarCanary probes generated yet.</p>`;
+            grid.innerHTML = `<p class="text-muted">No NectarCanary probes generated yet. Click "Generate Canary Probe" to create one.</p>`;
             return;
         }
 
         grid.innerHTML = canaries.map(c => `
             <div class="glass card">
-                <h3>🍯 Probe: ${c.canaryToken}</h3>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <h3>🍯 Probe: ${c.canaryToken}</h3>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-sm btn-secondary" onclick="app.editCanaryProbe('${c.id}')" title="Edit Probe"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-sm btn-secondary" onclick="app.deleteCanaryProbe('${c.id}')" title="Delete Probe"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
                 <p class="text-small text-muted mt-2">Target: ${c.targetUrl}</p>
                 <p class="text-small text-accent mt-2"><strong>Callback URL:</strong> \`${c.callbackUrl}\`</p>
             </div>
@@ -355,13 +373,29 @@ class WaispStudioApp {
         document.getElementById('modal-confirm')?.classList.remove('hidden');
     }
 
+    // TARGET CRUD
     openNewTargetModal() {
+        document.getElementById('target-edit-id').value = '';
+        document.getElementById('target-modal-title').textContent = '🎯 Add Audit Target';
         document.getElementById('target-name').value = '';
         document.getElementById('target-url').value = '';
         document.getElementById('modal-target').classList.remove('hidden');
     }
 
+    editTarget(id) {
+        const t = this.state.targets[id];
+        if (!t) return;
+        document.getElementById('target-edit-id').value = t.id;
+        document.getElementById('target-modal-title').textContent = '🎯 Edit Audit Target';
+        document.getElementById('target-name').value = t.name;
+        document.getElementById('target-url').value = t.url;
+        document.getElementById('target-env').value = t.environment || 'production';
+        document.getElementById('target-provider').value = t.provider || 'terra';
+        document.getElementById('modal-target').classList.remove('hidden');
+    }
+
     async saveTarget() {
+        const editId = document.getElementById('target-edit-id').value;
         const name = document.getElementById('target-name').value.trim();
         const url = document.getElementById('target-url').value.trim();
         const env = document.getElementById('target-env').value;
@@ -372,20 +406,20 @@ class WaispStudioApp {
             return;
         }
 
-        const id = 'target-' + Math.random().toString(36).substring(2, 9);
+        const id = editId || ('target-' + Math.random().toString(36).substring(2, 9));
         this.state.targets[id] = {
             id,
             name,
             url,
             environment: env,
             provider: provider,
-            createdAt: new Date().toISOString(),
+            createdAt: editId ? (this.state.targets[id]?.createdAt || new Date().toISOString()) : new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
 
         this.closeModals();
         this.renderAll();
-        this.showToast(`🎯 Target "${name}" added successfully!`, 'success');
+        this.showToast(`🎯 Target "${name}" ${editId ? 'updated' : 'added'} successfully!`, 'success');
         await this.syncVaultState();
     }
 
@@ -397,6 +431,151 @@ class WaispStudioApp {
             delete this.state.targets[id];
             this.renderAll();
             this.showToast(`Target "${targetName}" deleted`, 'info');
+            await this.syncVaultState();
+        });
+    }
+
+    // VENOM TEMPLATES CRUD
+    openNewVenomModal() {
+        document.getElementById('venom-edit-id').value = '';
+        document.getElementById('venom-modal-title').textContent = '🧪 Create Custom Venom Template';
+        document.getElementById('venom-name').value = '';
+        document.getElementById('venom-payloads').value = '';
+        document.getElementById('venom-description').value = '';
+        document.getElementById('modal-venom').classList.remove('hidden');
+    }
+
+    editVenomTemplate(id) {
+        const tmpl = (this.state.customVenomTemplates || []).find(t => t.id === id);
+        if (!tmpl) return;
+        document.getElementById('venom-edit-id').value = tmpl.id;
+        document.getElementById('venom-modal-title').textContent = '🧪 Edit Venom Template';
+        document.getElementById('venom-name').value = tmpl.name;
+        document.getElementById('venom-category').value = tmpl.category || 'dast';
+        document.getElementById('venom-severity').value = tmpl.severity || 'HIGH';
+        document.getElementById('venom-cvss').value = tmpl.cvssScore || 7.5;
+        document.getElementById('venom-payloads').value = Array.isArray(tmpl.payloads) ? tmpl.payloads.join(', ') : (tmpl.payloads || '');
+        document.getElementById('venom-description').value = tmpl.description || '';
+        document.getElementById('modal-venom').classList.remove('hidden');
+    }
+
+    async saveVenomTemplate() {
+        const editId = document.getElementById('venom-edit-id').value;
+        const name = document.getElementById('venom-name').value.trim();
+        const category = document.getElementById('venom-category').value;
+        const severity = document.getElementById('venom-severity').value;
+        const cvssScore = parseFloat(document.getElementById('venom-cvss').value) || 7.5;
+        const payloadsRaw = document.getElementById('venom-payloads').value.trim();
+        const description = document.getElementById('venom-description').value.trim();
+
+        if (!name) {
+            this.showToast('Please enter a template name', 'warning');
+            return;
+        }
+
+        const payloads = payloadsRaw ? payloadsRaw.split(',').map(p => p.trim()).filter(Boolean) : [];
+        const id = editId || ('venom-' + Math.random().toString(36).substring(2, 9));
+
+        if (!this.state.customVenomTemplates) this.state.customVenomTemplates = [];
+
+        const newTmpl = { id, name, category, severity, cvssScore, payloads, description };
+        const idx = this.state.customVenomTemplates.findIndex(t => t.id === id);
+        if (idx !== -1) {
+            this.state.customVenomTemplates[idx] = newTmpl;
+        } else {
+            this.state.customVenomTemplates.push(newTmpl);
+        }
+
+        this.closeModals();
+        this.renderAll();
+        this.showToast(`🧪 Venom Template "${name}" ${editId ? 'updated' : 'created'}!`, 'success');
+        await this.syncVaultState();
+    }
+
+    async deleteVenomTemplate(id) {
+        const tmpl = (this.state.customVenomTemplates || []).find(t => t.id === id);
+        const name = tmpl ? tmpl.name : 'this template';
+
+        this.showConfirmModal(`Are you sure you want to delete Venom Template "${name}"?`, '🗑️ Delete Venom Template', async () => {
+            this.state.customVenomTemplates = (this.state.customVenomTemplates || []).filter(t => t.id !== id);
+            this.renderAll();
+            this.showToast(`Venom Template "${name}" deleted`, 'info');
+            await this.syncVaultState();
+        });
+    }
+
+    // NECTAR CANARIES CRUD
+    openNewCanaryModal() {
+        document.getElementById('canary-edit-id').value = '';
+        document.getElementById('canary-modal-title').textContent = '🍯 Generate NectarCanary Probe';
+        document.getElementById('canary-target-url').value = '';
+        document.getElementById('canary-token').value = '';
+        document.getElementById('modal-canary').classList.remove('hidden');
+    }
+
+    editCanaryProbe(id) {
+        const canary = this.state.canaries[id];
+        if (!canary) return;
+        document.getElementById('canary-edit-id').value = canary.id;
+        document.getElementById('canary-modal-title').textContent = '🍯 Edit NectarCanary Probe';
+        document.getElementById('canary-target-url').value = canary.targetUrl;
+        document.getElementById('canary-token').value = canary.canaryToken;
+        document.getElementById('modal-canary').classList.remove('hidden');
+    }
+
+    async saveCanaryProbe() {
+        const editId = document.getElementById('canary-edit-id').value;
+        const targetUrl = document.getElementById('canary-target-url').value.trim();
+        let token = document.getElementById('canary-token').value.trim();
+
+        if (!targetUrl) {
+            this.showToast('Please enter a target URL for the canary probe', 'warning');
+            return;
+        }
+
+        if (!token) {
+            token = `waisp_canary_${Math.random().toString(36).substring(2, 12)}_${Date.now()}`;
+        }
+
+        const id = editId || ('canary-' + Math.random().toString(36).substring(2, 9));
+        const callbackUrl = `https://waisp-canary.terra.internal/probe/${token}`;
+
+        this.state.canaries[id] = {
+            id,
+            canaryToken: token,
+            targetUrl,
+            callbackUrl,
+            status: editId ? (this.state.canaries[id]?.status || 'armed') : 'armed',
+            createdAt: editId ? (this.state.canaries[id]?.createdAt || new Date().toISOString()) : new Date().toISOString()
+        };
+
+        this.closeModals();
+        this.renderAll();
+        this.showToast(`🍯 Canary Probe "${token}" ${editId ? 'updated' : 'generated'}!`, 'success');
+        await this.syncVaultState();
+    }
+
+    async deleteCanaryProbe(id) {
+        const canary = this.state.canaries[id];
+        const token = canary ? canary.canaryToken : 'this probe';
+
+        this.showConfirmModal(`Are you sure you want to delete Canary Probe "${token}"?`, '🗑️ Delete Nectar Canary', async () => {
+            delete this.state.canaries[id];
+            this.renderAll();
+            this.showToast(`Canary Probe "${token}" deleted`, 'info');
+            await this.syncVaultState();
+        });
+    }
+
+    // VULNERABILITIES DELETE
+    async deleteVulnerability(id) {
+        const vuln = this.state.vulnerabilities[id];
+        const title = vuln ? vuln.title : 'this finding';
+
+        this.showConfirmModal(`Are you sure you want to delete finding "${title}"?`, '🗑️ Delete Finding', async () => {
+            delete this.state.vulnerabilities[id];
+            this.renderAll();
+            this.showToast(`Vulnerability finding deleted`, 'info');
             await this.syncVaultState();
         });
     }
