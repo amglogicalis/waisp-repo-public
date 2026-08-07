@@ -362,14 +362,18 @@ class WaispStudioApp {
                     ${c.notificationChannels ? `<p class="text-small text-muted mt-1"><strong>Alert Channels:</strong> ${c.notificationChannels.map(ch => ch.toUpperCase()).join(', ')}</p>` : ''}
 
                     ${isTriggered ? `
-                        <div class="mt-4 p-3" style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); border-radius: 8px;">
-                            <p class="text-small text-danger"><strong>🚨 TRIGGER DETECTED!</strong> Data exfiltration confirmed!</p>
-                            <p class="text-small text-muted mt-1"><strong>Triggered At:</strong> ${new Date(c.triggeredAt).toLocaleString()}</p>
-                            <p class="text-small text-muted mt-1"><strong>Source IP:</strong> \`${c.sourceIp || '198.51.100.42'}\`</p>
-                            <p class="text-small text-muted mt-1"><strong>User Agent:</strong> \`${c.userAgent || 'Mozilla/5.0 Audit Agent'}\`</p>
-                            <button class="btn btn-sm btn-primary mt-3" style="background: var(--danger);" onclick="app.revokeCanaryAlarm('${c.id}')">
-                                <i class="fa-solid fa-shield"></i> Reset Alarm (Revoke to ARMED)
-                            </button>
+                        <div class="triggered-alert-box">
+                            <p class="text-danger" style="font-size: 0.95rem; font-weight: 700;">
+                                <i class="fa-solid fa-triangle-exclamation"></i> TRIGGER DETECTED! Out-of-band data exfiltration confirmed!
+                            </p>
+                            <p class="text-small text-muted"><strong>Triggered At:</strong> ${new Date(c.triggeredAt).toLocaleString()}</p>
+                            <p class="text-small text-muted"><strong>Source IP:</strong> <code class="code-badge">${c.sourceIp || '198.51.100.42'}</code></p>
+                            <p class="text-small text-muted"><strong>User Agent:</strong> <code class="code-badge">${c.userAgent || 'Mozilla/5.0 Audit Agent'}</code></p>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-primary" style="background: var(--danger);" onclick="app.revokeCanaryAlarm('${c.id}')">
+                                    <i class="fa-solid fa-shield-halved"></i> Reset Alarm (Revoke to ARMED)
+                                </button>
+                            </div>
                         </div>
                     ` : `
                         <div class="mt-4 flex gap-2" style="flex-wrap: wrap;">
@@ -591,6 +595,16 @@ class WaispStudioApp {
         }
     }
 
+    toggleCustomTtlField() {
+        const ttlSelect = document.getElementById('canary-ttl').value;
+        const group = document.getElementById('canary-custom-ttl-group');
+        if (ttlSelect === 'custom') {
+            group.classList.remove('hidden');
+        } else {
+            group.classList.add('hidden');
+        }
+    }
+
     openNewCanaryModal() {
         document.getElementById('canary-edit-id').value = '';
         document.getElementById('canary-modal-title').textContent = '🍯 Generate NectarCanary Probe';
@@ -599,12 +613,14 @@ class WaispStudioApp {
         document.getElementById('canary-probe-type').value = 'http_callback';
         document.getElementById('canary-custom-code').value = '';
         document.getElementById('canary-ttl').value = '0';
+        document.getElementById('canary-custom-ttl').value = '';
         document.getElementById('canary-notify-console').checked = true;
         document.getElementById('canary-notify-issue').checked = true;
         document.getElementById('canary-notify-webhook').checked = false;
         document.getElementById('canary-webhook-url').value = '';
         this.toggleCustomProbeCodeField();
         this.toggleWebhookUrlField();
+        this.toggleCustomTtlField();
         document.getElementById('modal-canary').classList.remove('hidden');
     }
 
@@ -617,8 +633,17 @@ class WaispStudioApp {
         document.getElementById('canary-token').value = canary.canaryToken;
         document.getElementById('canary-probe-type').value = canary.probeType || 'http_callback';
         document.getElementById('canary-custom-code').value = canary.customProbeCode || '';
-        document.getElementById('canary-ttl').value = canary.ttlHours || 0;
         
+        const standardTtls = [0, 24, 72, 168];
+        const ttlVal = canary.ttlHours || 0;
+        if (standardTtls.includes(ttlVal)) {
+            document.getElementById('canary-ttl').value = ttlVal.toString();
+            document.getElementById('canary-custom-ttl').value = '';
+        } else {
+            document.getElementById('canary-ttl').value = 'custom';
+            document.getElementById('canary-custom-ttl').value = ttlVal;
+        }
+
         const channels = canary.notificationChannels || ['console'];
         document.getElementById('canary-notify-console').checked = channels.includes('console');
         document.getElementById('canary-notify-issue').checked = channels.includes('github_issue');
@@ -627,6 +652,7 @@ class WaispStudioApp {
 
         this.toggleCustomProbeCodeField();
         this.toggleWebhookUrlField();
+        this.toggleCustomTtlField();
         document.getElementById('modal-canary').classList.remove('hidden');
     }
 
@@ -636,7 +662,14 @@ class WaispStudioApp {
         let token = document.getElementById('canary-token').value.trim();
         const probeType = document.getElementById('canary-probe-type').value;
         const customProbeCode = document.getElementById('canary-custom-code').value.trim();
-        const ttlHours = parseInt(document.getElementById('canary-ttl').value) || 0;
+        
+        let ttlHours = 0;
+        const ttlSelect = document.getElementById('canary-ttl').value;
+        if (ttlSelect === 'custom') {
+            ttlHours = parseInt(document.getElementById('canary-custom-ttl').value) || 0;
+        } else {
+            ttlHours = parseInt(ttlSelect) || 0;
+        }
 
         if (!targetUrl) {
             this.showToast('Please enter a target URL for the canary probe', 'warning');
@@ -675,7 +708,7 @@ class WaispStudioApp {
 
         this.closeModals();
         this.renderAll();
-        this.showToast(`🍯 Canary Probe "${token}" ${editId ? 'updated' : 'armed & deployed'}!`, 'success');
+        this.showToast(`🍯 Canary Probe "${token}" ${editId ? 'updated' : 'armed & deployed'}! (TTL: ${ttlHours > 0 ? ttlHours + 'h' : 'Permanent'})`, 'success');
         await this.syncVaultState();
     }
 

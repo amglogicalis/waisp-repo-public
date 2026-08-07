@@ -362,12 +362,17 @@
                 </div>
                 <div class="form-group">
                     <label>Time-To-Live Expiration (TTL Hours)</label>
-                    <select id="canary-ttl" class="input">
+                    <select id="canary-ttl" class="input" onchange="app.toggleCustomTtlField()">
                         <option value="0">Permanent (No expiration)</option>
                         <option value="24">24 Hours (1 Day)</option>
                         <option value="72">72 Hours (3 Days)</option>
                         <option value="168">168 Hours (7 Days)</option>
+                        <option value="custom">Custom TTL (Specify custom hours manually)</option>
                     </select>
+                </div>
+                <div id="canary-custom-ttl-group" class="form-group hidden">
+                    <label>Custom Expiration Hours (TTL)</label>
+                    <input type="number" id="canary-custom-ttl" class="input" placeholder="e.g. 12 or 48" min="1">
                 </div>
                 <div class="form-group">
                     <label>Notification & Alert Channels</label>
