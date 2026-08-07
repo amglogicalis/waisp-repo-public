@@ -63,9 +63,31 @@ class WaispStudioApp {
         this.renderAll();
     }
 
-    setAuthenticatedState() {
-        document.getElementById('token-group').classList.add('hidden');
-        document.getElementById('btn-disconnect').classList.remove('hidden');
+    async setAuthenticatedState() {
+        document.getElementById('token-group')?.classList.add('hidden');
+        document.getElementById('btn-disconnect')?.classList.remove('hidden');
+
+        try {
+            const res = await fetch('https://api.github.com/user', {
+                headers: { 'Authorization': `token ${this.token}` }
+            });
+            if (res.ok) {
+                const user = await res.json();
+                this.user = user;
+                const profileEl = document.getElementById('user-profile');
+                if (profileEl) {
+                    profileEl.innerHTML = `
+                        <img src="${user.avatar_url}" class="avatar" alt="${user.login}">
+                        <div class="user-info">
+                            <span class="user-name">${user.login}</span>
+                            <span class="user-status text-primary"><i class="fa-solid fa-circle" style="font-size:8px;"></i> Connected</span>
+                        </div>
+                    `;
+                }
+            }
+        } catch (e) {
+            // Failed to fetch user profile
+        }
     }
 
     async loadVaultState() {
