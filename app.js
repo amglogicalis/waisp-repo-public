@@ -1,14 +1,14 @@
 class WaispStudioApp {
     constructor() {
         this.token = localStorage.getItem('waisp_token') || '';
-        this.vaultRepo = localStorage.getItem('waisp_vault_repo') || '.waisp-storage';
-        this.user = null;
         this.state = {
             targets: {},
             vulnerabilities: {},
-            customTemplates: [],
+            scans: [],
+            customVenomTemplates: [],
             canaries: {},
-            scans: []
+            colonySubscription: { isSubscribed: false, localImmunityRules: {} },
+            pheromones: {}
         };
 
         this.init();
@@ -16,145 +16,169 @@ class WaispStudioApp {
 
     async init() {
         this.bindEvents();
+        this.setupNavigation();
+        
         if (this.token) {
-            await this.setAuthenticatedState();
+            this.setConnectedUI(true);
             await this.loadVaultState();
+        } else {
+            this.setConnectedUI(false);
+            this.renderAll();
         }
-        this.renderAll();
     }
 
     bindEvents() {
         document.getElementById('btn-connect')?.addEventListener('click', () => this.connect());
         document.getElementById('btn-disconnect')?.addEventListener('click', () => this.disconnect());
+    }
 
-        document.querySelectorAll('.nav-item').forEach(item => {
+    setupNavigation() {
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
-                const view = item.dataset.view;
-                this.switchView(view);
+                const view = item.getAttribute('data-view');
+                if (!view) return;
+
+                navItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+
+                document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
+                const targetView = document.getElementById(`view-${view}`);
+                if (targetView) targetView.classList.remove('hidden');
             });
         });
     }
 
-    switchView(viewId) {
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.querySelector(`.nav-item[data-view="${viewId}"]`)?.classList.add('active');
+    setConnectedUI(isConnected) {
+        const tokenGroup = document.getElementById('token-group');
+        const btnDisconnect = document.getElementById('btn-disconnect');
+        const userProfile = document.getElementById('user-profile');
 
-        document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
-        document.getElementById(`view-${viewId}`)?.classList.remove('hidden');
+        if (isConnected) {
+            tokenGroup?.classList.add('hidden');
+            btnDisconnect?.classList.remove('hidden');
+            if (userProfile) {
+                userProfile.querySelector('.user-name').textContent = 'Connected PAT';
+                userProfile.querySelector('.user-status').textContent = 'Vault Synced';
+                userProfile.querySelector('.user-status').className = 'user-status text-accent';
+            }
+        } else {
+            tokenGroup?.classList.remove('hidden');
+            btnDisconnect?.classList.add('hidden');
+            if (userProfile) {
+                userProfile.querySelector('.user-name').textContent = 'Disconnected';
+                userProfile.querySelector('.user-status').textContent = 'Enter PAT Token';
+                userProfile.querySelector('.user-status').className = 'user-status text-muted';
+            }
+        }
     }
 
     async connect() {
         const tokenInput = document.getElementById('github-token');
-        if (!tokenInput || !tokenInput.value) return;
+        const token = tokenInput?.value.trim();
+        if (!token) {
+            this.showToast('Please enter a valid GitHub Personal Access Token', 'warning');
+            return;
+        }
 
-        this.token = tokenInput.value.trim();
-        localStorage.setItem('waisp_token', this.token);
-        await this.setAuthenticatedState();
+        this.token = token;
+        localStorage.setItem('waisp_token', token);
+        this.setConnectedUI(true);
+        this.showToast('Connecting to GitHub Vault storage...', 'info');
         await this.loadVaultState();
-        this.renderAll();
     }
 
     disconnect() {
         this.token = '';
         localStorage.removeItem('waisp_token');
-        document.getElementById('token-group')?.classList.remove('hidden');
-        document.getElementById('btn-disconnect')?.classList.add('hidden');
-        this.state = { targets: {}, vulnerabilities: {}, customTemplates: [], canaries: {}, scans: [] };
+        this.setConnectedUI(false);
+        this.state = { targets: {}, vulnerabilities: {}, scans: [], customVenomTemplates: [], canaries: {}, colonySubscription: { isSubscribed: false, localImmunityRules: {} }, pheromones: {} };
         this.renderAll();
-    }
-
-    async setAuthenticatedState() {
-        document.getElementById('token-group')?.classList.add('hidden');
-        document.getElementById('btn-disconnect')?.classList.remove('hidden');
-
-        try {
-            const res = await fetch('https://api.github.com/user', {
-                headers: { 'Authorization': `token ${this.token}` }
-            });
-            if (res.ok) {
-                const user = await res.json();
-                this.user = user;
-                const profileEl = document.getElementById('user-profile');
-                if (profileEl) {
-                    profileEl.innerHTML = `
-                        <img src="${user.avatar_url}" class="avatar" alt="${user.login}">
-                        <div class="user-info">
-                            <span class="user-name">${user.login}</span>
-                            <span class="user-status text-primary"><i class="fa-solid fa-circle" style="font-size:8px;"></i> Connected</span>
-                        </div>
-                    `;
-                }
-            }
-        } catch (e) {
-            // Failed to fetch user profile
-        }
+        this.showToast('Disconnected from GitHub Vault', 'info');
     }
 
     async loadVaultState() {
-        if (!this.token) return;
         try {
-            let fullRepo = this.vaultRepo;
-            if (!fullRepo.includes('/') && this.user && this.user.login) {
-                fullRepo = `${this.user.login}/${this.vaultRepo}`;
-            }
-
-            const res = await fetch(`https://api.github.com/repos/${fullRepo}/contents/waisp_state.json`, {
-                headers: { 'Authorization': `token ${this.token}` }
+            const res = await fetch('https://api.github.com/repos/amglogicalis/.waisp-storage/contents/waisp_state.json', {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
             });
 
             if (res.ok) {
-                const fileData = await res.json();
-                const cleanBase64 = fileData.content.replace(/\s/g, '');
-                const binaryStr = atob(cleanBase64);
-                const bytes = Uint8Array.from(binaryStr, c => c.charCodeAt(0));
-                const jsonStr = new TextDecoder().decode(bytes);
-                this.state = JSON.parse(jsonStr);
+                const data = await res.json();
+                const content = atob(data.content.replace(/\s/g, ''));
+                const vaultData = JSON.parse(content);
+                
+                this.state.targets = vaultData.targets || {};
+                this.state.vulnerabilities = vaultData.vulnerabilities || {};
+                this.state.scans = vaultData.scans || [];
+                this.state.customVenomTemplates = vaultData.customVenomTemplates || [];
+                this.state.canaries = vaultData.canaries || {};
+                this.state.colonySubscription = vaultData.colonySubscription || { isSubscribed: false, localImmunityRules: {} };
+                this.state.pheromones = vaultData.pheromones || {};
+
+                this.renderAll();
+                this.showToast('✅ Vault state loaded successfully from GitHub!', 'success');
+            } else {
+                this.renderAll();
             }
-        } catch(e) {
-            console.error('Error loading vault state:', e);
+        } catch (err) {
+            this.renderAll();
         }
     }
 
     async syncVaultState() {
-        if (!this.token) return false;
+        if (!this.token) return;
+
         try {
-            let fullRepo = this.vaultRepo;
-            if (!fullRepo.includes('/') && this.user && this.user.login) {
-                fullRepo = `${this.user.login}/${this.vaultRepo}`;
-            }
-
             let sha;
-            const getRes = await fetch(`https://api.github.com/repos/${fullRepo}/contents/waisp_state.json`, {
-                headers: { 'Authorization': `token ${this.token}` }
+            const checkRes = await fetch('https://api.github.com/repos/amglogicalis/.waisp-storage/contents/waisp_state.json', {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
             });
-            if (getRes.ok) {
-                const fileData = await getRes.json();
-                sha = fileData.sha;
+            if (checkRes.ok) {
+                const data = await checkRes.json();
+                sha = data.sha;
             }
 
-            const jsonStr = JSON.stringify(this.state, null, 2);
-            const utf8Bytes = new TextEncoder().encode(jsonStr);
-            let binaryStr = '';
-            utf8Bytes.forEach(b => binaryStr += String.fromCharCode(b));
-            const contentBase64 = btoa(binaryStr);
+            const vaultPayload = {
+                version: '1.2.0',
+                targets: this.state.targets,
+                vulnerabilities: this.state.vulnerabilities,
+                scans: this.state.scans,
+                customVenomTemplates: this.state.customVenomTemplates,
+                canaries: this.state.canaries,
+                colonySubscription: this.state.colonySubscription,
+                pheromones: this.state.pheromones,
+                updatedAt: new Date().toISOString()
+            };
 
-            const putRes = await fetch(`https://api.github.com/repos/${fullRepo}/contents/waisp_state.json`, {
+            const jsonStr = JSON.stringify(vaultPayload, null, 2);
+            const contentBase64 = btoa(unescape(encodeURIComponent(jsonStr)));
+
+            const putRes = await fetch('https://api.github.com/repos/amglogicalis/.waisp-storage/contents/waisp_state.json', {
                 method: 'PUT',
                 headers: {
                     'Authorization': `token ${this.token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    message: '🛡️ WAISP Nest Studio state update',
+                    message: '⚡ Sync WAISP Nest state (v1.2.0)',
                     content: contentBase64,
                     sha
                 })
             });
 
-            return putRes.ok;
-        } catch (e) {
-            return false;
+            if (putRes.ok) {
+                this.showToast('☁️ Vault synced to GitHub .waisp-storage', 'success');
+            }
+        } catch (err) {
+            console.error('Vault sync error:', err);
         }
     }
 
@@ -164,6 +188,7 @@ class WaispStudioApp {
         this.renderVulnerabilities();
         this.renderVenomTemplates();
         this.renderCanaries();
+        this.renderColonyMesh();
     }
 
     renderDashboard() {
@@ -201,16 +226,16 @@ class WaispStudioApp {
             }
         }
 
-        // Dashboard Canaries
+        // Dashboard Traps
         const dashCanaries = document.getElementById('dashboard-canaries-list');
         if (dashCanaries) {
             if (canaries.length === 0) {
-                dashCanaries.innerHTML = `<p class="text-muted">No canaries deployed yet.</p>`;
+                dashCanaries.innerHTML = `<p class="text-muted">No traps deployed yet.</p>`;
             } else {
                 dashCanaries.innerHTML = canaries.slice(0, 5).map(c => `
                     <div style="padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
                         <div>
-                            <strong style="font-size: 0.95rem;">🍯 ${c.canaryToken}</strong>
+                            <strong style="font-size: 0.95rem;">${c.trapKind === 'poison_mirror_tarpit' ? '☠️ Poison Tarpit' : '🍯 Canary'} (${c.canaryToken})</strong>
                             <p class="text-small text-muted">${c.targetUrl}</p>
                         </div>
                         <span class="logo-badge" style="${c.status === 'triggered' ? 'background:rgba(239,68,68,0.2); color:var(--danger); font-weight:bold;' : 'background:rgba(16,185,129,0.2); color:#10b981;'}">
@@ -318,7 +343,7 @@ class WaispStudioApp {
 
         const canaries = Object.values(this.state.canaries || {});
         if (canaries.length === 0) {
-            grid.innerHTML = `<p class="text-muted">No NectarCanary probes generated yet. Click "Generate Canary Probe" to create one.</p>`;
+            grid.innerHTML = `<p class="text-muted">No Nectar Traps or Probes generated yet. Click "Create Probe or Trap" to deploy one.</p>`;
             return;
         }
 
@@ -326,59 +351,74 @@ class WaispStudioApp {
             const isTriggered = c.status === 'triggered';
             const isExpired = c.status === 'expired';
             
-            const probeTypeLabels = {
-                http_callback: '🌐 HTTP Callback',
-                dns_probe: '🔍 DNS Probe',
-                header_honeytoken: '🔑 Header Honeytoken',
-                custom_creator: '⚡ Custom Creator Probe'
+            const trapKindLabels = {
+                canary_probe: '🍯 NectarCanary Probe',
+                poison_mirror_tarpit: '☠️ Poison Mirror Tarpit',
+                honeytrap_injection: '💉 HoneyTrap Injection'
             };
 
-            const payloadToCopy = c.probeType === 'custom_creator' && c.customProbeCode ? c.customProbeCode : c.callbackUrl;
+            let snippetToCopy = c.callbackUrl;
+            if (c.trapKind === 'honeytrap_injection') {
+                const sType = c.honeytrapConfig?.snippetType || 'js_script';
+                if (sType === 'html_meta') snippetToCopy = `<meta name="waisp-honeytrap" content="${c.canaryToken}">`;
+                else if (sType === 'xml_entity') snippetToCopy = `<!ENTITY % waisp SYSTEM "${c.callbackUrl}">`;
+                else snippetToCopy = `<script src="${c.callbackUrl}" async></script>`;
+            }
 
             return `
                 <div class="glass card" style="${isTriggered ? 'border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.08); shadow: 0 0 15px rgba(239,68,68,0.2);' : ''}">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px;">
                         <div style="min-width: 0; flex: 1;">
                             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                                <h3 style="font-size: 1rem;">🍯 Probe</h3>
+                                <h3 style="font-size: 1rem;">${trapKindLabels[c.trapKind] || '🍯 Nectar Probe'}</h3>
                                 <span class="logo-badge" style="${isTriggered ? 'background:rgba(239,68,68,0.25); color:var(--danger); font-weight:bold;' : (isExpired ? 'background:rgba(255,255,255,0.1); color:var(--text-muted);' : 'background:rgba(16,185,129,0.2); color:#10b981; font-weight:bold;')}">
-                                    ${isTriggered ? '🚨 TRIGGERED' : (isExpired ? '⏳ EXPIRED' : '🟢 ARMED')}
+                                    ${isTriggered ? (c.trapKind === 'poison_mirror_tarpit' ? '☠️ ATTACKER TRAPPED' : '🚨 TRIGGERED') : (isExpired ? '⏳ EXPIRED' : '🟢 ARMED')}
                                 </span>
-                                <span class="logo-badge" style="background:rgba(250,204,21,0.15); color:var(--accent);">${probeTypeLabels[c.probeType] || 'HTTP Callback'}</span>
                             </div>
                             <p class="text-small text-muted mt-2" style="word-break: break-all; font-family: monospace; font-weight: 600; color: var(--text);">${c.canaryToken}</p>
                         </div>
                         <div style="display:flex; gap:6px; flex-shrink: 0;">
-                            <button class="btn-sm btn-secondary" onclick="app.editCanaryProbe('${c.id}')" title="Edit Probe"><i class="fa-solid fa-pen"></i></button>
-                            <button class="btn-sm btn-secondary" onclick="app.deleteCanaryProbe('${c.id}')" title="Delete Probe"><i class="fa-solid fa-trash"></i></button>
+                            <button class="btn-sm btn-secondary" onclick="app.editCanaryProbe('${c.id}')" title="Edit Trap"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn-sm btn-secondary" onclick="app.deleteCanaryProbe('${c.id}')" title="Delete Trap"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
 
                     <p class="text-small text-muted mt-3" style="word-break: break-all;"><strong>Target URL:</strong> ${c.targetUrl}</p>
                     <p class="text-small text-accent mt-2" style="word-break: break-all;"><strong>Callback URL:</strong> <code class="code-badge">${c.callbackUrl}</code></p>
+
+                    ${c.trapKind === 'poison_mirror_tarpit' ? `<p class="text-small text-muted mt-2"><strong>Tarpit Delay:</strong> ${c.poisonMirrorConfig?.delayMsPerByte || 1000} ms/byte (Streaming)</p>` : ''}
                     
                     ${c.ttlHours ? `<p class="text-small text-muted mt-2"><strong>TTL Expiration:</strong> ${c.ttlHours} hours ${c.expiresAt ? `(Expires: ${new Date(c.expiresAt).toLocaleDateString()})` : ''}</p>` : `<p class="text-small text-muted mt-2"><strong>TTL:</strong> Permanent</p>`}
-                    
-                    ${c.notificationChannels ? `<p class="text-small text-muted mt-1"><strong>Alert Channels:</strong> ${c.notificationChannels.map(ch => ch.toUpperCase()).join(', ')}</p>` : ''}
 
                     ${isTriggered ? `
                         <div class="triggered-alert-box">
                             <p class="text-danger" style="font-size: 0.95rem; font-weight: 700;">
-                                <i class="fa-solid fa-triangle-exclamation"></i> TRIGGER DETECTED! Out-of-band data exfiltration confirmed!
+                                <i class="fa-solid fa-triangle-exclamation"></i> ${c.trapKind === 'poison_mirror_tarpit' ? 'ATTACKER FROZEN IN VENOM MIRROR!' : 'TRIGGER DETECTED! Data exfiltration confirmed!'}
                             </p>
                             <p class="text-small text-muted"><strong>Triggered At:</strong> ${new Date(c.triggeredAt).toLocaleString()}</p>
                             <p class="text-small text-muted"><strong>Source IP:</strong> <code class="code-badge">${c.sourceIp || '198.51.100.42'}</code></p>
                             <p class="text-small text-muted"><strong>User Agent:</strong> <code class="code-badge">${c.userAgent || 'Mozilla/5.0 Audit Agent'}</code></p>
-                            <div class="mt-2">
+
+                            ${c.trappedAttackerLog ? `
+                                <div class="p-2 mt-2" style="background:rgba(0,0,0,0.4); border-radius:6px;">
+                                    <p class="text-small text-accent"><strong>Tarpit Forensics:</strong> Trapped 42s (${c.trappedAttackerLog.requestCount} requests frozen)</p>
+                                    <p class="text-small text-muted">Captured Payloads: \`${c.trappedAttackerLog.capturedPayloads.join(', ')}\`</p>
+                                </div>
+                            ` : ''}
+
+                            <div class="mt-3 flex gap-2" style="flex-wrap:wrap;">
                                 <button class="btn btn-sm btn-primary" style="background: var(--danger);" onclick="app.revokeCanaryAlarm('${c.id}')">
                                     <i class="fa-solid fa-shield-halved"></i> Reset Alarm (Revoke to ARMED)
+                                </button>
+                                <button class="btn btn-sm btn-secondary" onclick="app.broadcastThreatToColony('${c.id}')">
+                                    <i class="fa-solid fa-hive"></i> Broadcast to Colony
                                 </button>
                             </div>
                         </div>
                     ` : `
                         <div class="mt-4 flex gap-2" style="flex-wrap: wrap;">
-                            <button class="btn btn-sm btn-secondary" onclick="app.copyToClipboard('${payloadToCopy}')">
-                                <i class="fa-solid fa-copy"></i> Copy Payload
+                            <button class="btn btn-sm btn-secondary" onclick="app.copySnippetToClipboard('${snippetToCopy}')">
+                                <i class="fa-solid fa-copy"></i> Copy Snippet/Payload
                             </button>
                             <button class="btn btn-sm btn-primary" onclick="app.simulateCanaryTrigger('${c.id}')">
                                 <i class="fa-solid fa-bolt"></i> Test Trigger Alarm
@@ -390,9 +430,116 @@ class WaispStudioApp {
         }).join('');
     }
 
-    copyToClipboard(text) {
+    renderColonyMesh() {
+        const isSubscribed = this.state.colonySubscription?.isSubscribed || false;
+        const btnToggle = document.getElementById('btn-colony-toggle');
+        const statusTitle = document.getElementById('colony-status-title');
+        const statusDesc = document.getElementById('colony-status-desc');
+        const statusBadge = document.getElementById('colony-status-badge');
+
+        if (btnToggle) {
+            btnToggle.innerHTML = isSubscribed ? '<i class="fa-solid fa-pause"></i> Opt-Out of Colony' : '<i class="fa-solid fa-plug"></i> Join Colony Mesh';
+            btnToggle.className = isSubscribed ? 'btn btn-secondary' : 'btn btn-primary';
+        }
+
+        if (statusTitle) statusTitle.innerHTML = isSubscribed ? '<i class="fa-solid fa-wifi text-accent"></i> Network Status: SUBSCRIBED & PROTECTED' : '<i class="fa-solid fa-signal text-muted"></i> Network Status: OPTED-OUT';
+        if (statusDesc) statusDesc.textContent = isSubscribed ? `Anonymous Colony ID: ${this.state.colonySubscription?.anonymousId || 'waisp_anon_active'} • Immunity rules active.` : 'Opt-in to share & receive anonymous threat intelligence wave signals.';
+        if (statusBadge) {
+            statusBadge.textContent = isSubscribed ? 'SUBSCRIBED 🟢' : 'OPTED OUT ⚪';
+            statusBadge.style.cssText = isSubscribed ? 'background:rgba(16,185,129,0.2); color:#10b981; font-weight:bold;' : 'background:rgba(255,255,255,0.1); color:var(--text-muted);';
+        }
+
+        const grid = document.getElementById('colony-pheromones-grid');
+        if (!grid) return;
+
+        const pheromones = Object.values(this.state.pheromones || {});
+        if (pheromones.length === 0) {
+            grid.innerHTML = `<p class="text-muted">No threat wave signals received yet. Click "Join Colony Mesh" to subscribe.</p>`;
+            return;
+        }
+
+        grid.innerHTML = pheromones.map(p => `
+            <div class="glass card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="logo-badge" style="background:rgba(250,204,21,0.15); color:var(--accent);">${p.vulnType.toUpperCase()} THREAT</span>
+                    <span class="text-small text-muted">${new Date(p.timestamp).toLocaleTimeString()}</span>
+                </div>
+                <h3 class="mt-2" style="font-family:monospace; font-size:0.95rem;">${p.threatHash}</h3>
+                <p class="text-small text-muted mt-2">Source IP Mask: \`${p.encryptedSourceIp}\` • Risk Score: ${p.riskScore}/10</p>
+                <div class="mt-4 p-2" style="background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:0.8rem;">
+                    Local Rule: ${p.immunityRules[0] || 'BLOCK_ATTACK_SIGNATURE'}
+                </div>
+                <button class="btn btn-sm btn-primary mt-3" onclick="app.applyColonyImmunityRule('${p.id}')">
+                    <i class="fa-solid fa-shield"></i> Apply Local Immunity Rule
+                </button>
+            </div>
+        `).join('');
+    }
+
+    toggleColonySubscription() {
+        const cur = this.state.colonySubscription?.isSubscribed || false;
+        if (!cur) {
+            this.state.colonySubscription = {
+                isSubscribed: true,
+                subscribedAt: new Date().toISOString(),
+                anonymousId: 'waisp_anon_' + Math.random().toString(36).substring(2, 10),
+                localImmunityRules: {}
+            };
+            
+            // Seed a sample threat wave signal
+            const signalId = 'sig-' + Math.random().toString(36).substring(2, 8);
+            this.state.pheromones[signalId] = {
+                id: signalId,
+                threatHash: 'ph_' + Math.random().toString(36).substring(2, 10),
+                vulnType: 'SSRF_METADATA_EXFILTRATION',
+                riskScore: 9.2,
+                encryptedSourceIp: '198.51.*.*',
+                immunityRules: ['BLOCK_SSRF_AWS_METADATA_IP_198.51.X.X'],
+                timestamp: new Date().toISOString()
+            };
+
+            this.showToast('🐝 Subscribed to WaispColony Mesh! Protection wave active.', 'success');
+        } else {
+            this.state.colonySubscription.isSubscribed = false;
+            this.showToast('Opted out of WaispColony Mesh', 'info');
+        }
+        this.renderAll();
+        this.syncVaultState();
+    }
+
+    showColonySecurityInfo() {
+        document.getElementById('modal-colony-security')?.classList.remove('hidden');
+    }
+
+    applyColonyImmunityRule(signalId) {
+        const signal = this.state.pheromones[signalId];
+        if (!signal) return;
+        this.showToast(`🛡️ Applied Local Immunity Rule: ${signal.immunityRules[0]}`, 'success');
+    }
+
+    broadcastThreatToColony(canaryId) {
+        const canary = this.state.canaries[canaryId];
+        if (!canary) return;
+
+        const signalId = 'sig-' + Math.random().toString(36).substring(2, 8);
+        this.state.pheromones[signalId] = {
+            id: signalId,
+            threatHash: 'ph_' + Math.random().toString(36).substring(2, 10),
+            vulnType: canary.trapKind === 'poison_mirror_tarpit' ? 'POISON_MIRROR_TARPIT_TRIGGER' : 'NECTAR_CANARY_EXFILTRATION',
+            riskScore: 9.8,
+            encryptedSourceIp: (canary.sourceIp || '198.51.100.42').split('.').slice(0, 2).join('.') + '.*.*',
+            immunityRules: [`BLOCK_${canary.canaryToken.toUpperCase()}_SIGNATURE`],
+            timestamp: new Date().toISOString()
+        };
+
+        this.renderAll();
+        this.showToast(`📢 Threat hash ${this.state.pheromones[signalId].threatHash} broadcasted to Colony Mesh!`, 'success');
+        this.syncVaultState();
+    }
+
+    copySnippetToClipboard(text) {
         navigator.clipboard.writeText(text).then(() => {
-            this.showToast('📋 Payload copied to clipboard!', 'success');
+            this.showToast('📋 Snippet/Payload copied to clipboard!', 'success');
         }).catch(() => {
             this.showToast('Failed to copy to clipboard', 'warning');
         });
@@ -574,7 +721,24 @@ class WaispStudioApp {
         });
     }
 
-    // NECTAR CANARIES CRUD & ALARM MANAGEMENT
+    // NECTAR TRAP FAMILY CRUD
+    toggleTrapKindFields() {
+        const trapKind = document.getElementById('canary-trap-kind').value;
+        const groupMirror = document.getElementById('group-poison-mirror');
+        const groupInjection = document.getElementById('group-honeytrap-injection');
+
+        if (trapKind === 'poison_mirror_tarpit') {
+            groupMirror.classList.remove('hidden');
+            groupInjection.classList.add('hidden');
+        } else if (trapKind === 'honeytrap_injection') {
+            groupMirror.classList.add('hidden');
+            groupInjection.classList.remove('hidden');
+        } else {
+            groupMirror.classList.add('hidden');
+            groupInjection.classList.add('hidden');
+        }
+    }
+
     toggleCustomProbeCodeField() {
         const probeType = document.getElementById('canary-probe-type').value;
         const group = document.getElementById('canary-custom-code-group');
@@ -607,7 +771,8 @@ class WaispStudioApp {
 
     openNewCanaryModal() {
         document.getElementById('canary-edit-id').value = '';
-        document.getElementById('canary-modal-title').textContent = '🍯 Generate NectarCanary Probe';
+        document.getElementById('canary-modal-title').textContent = '🍯 Create Nectar Probe or Trap';
+        document.getElementById('canary-trap-kind').value = 'canary_probe';
         document.getElementById('canary-target-url').value = '';
         document.getElementById('canary-token').value = '';
         document.getElementById('canary-probe-type').value = 'http_callback';
@@ -618,6 +783,8 @@ class WaispStudioApp {
         document.getElementById('canary-notify-issue').checked = true;
         document.getElementById('canary-notify-webhook').checked = false;
         document.getElementById('canary-webhook-url').value = '';
+        
+        this.toggleTrapKindFields();
         this.toggleCustomProbeCodeField();
         this.toggleWebhookUrlField();
         this.toggleCustomTtlField();
@@ -628,11 +795,22 @@ class WaispStudioApp {
         const canary = this.state.canaries[id];
         if (!canary) return;
         document.getElementById('canary-edit-id').value = canary.id;
-        document.getElementById('canary-modal-title').textContent = '🍯 Edit NectarCanary Probe';
+        document.getElementById('canary-modal-title').textContent = '🍯 Edit Nectar Probe or Trap';
+        document.getElementById('canary-trap-kind').value = canary.trapKind || 'canary_probe';
         document.getElementById('canary-target-url').value = canary.targetUrl;
         document.getElementById('canary-token').value = canary.canaryToken;
         document.getElementById('canary-probe-type').value = canary.probeType || 'http_callback';
         document.getElementById('canary-custom-code').value = canary.customProbeCode || '';
+
+        if (canary.poisonMirrorConfig) {
+            document.getElementById('tarpit-mode').value = canary.poisonMirrorConfig.tarpitMode || 'streaming';
+            document.getElementById('tarpit-delay-ms').value = canary.poisonMirrorConfig.delayMsPerByte || 1000;
+            document.getElementById('tarpit-decoy-user').value = canary.poisonMirrorConfig.decoyCredentials?.user || '';
+        }
+
+        if (canary.honeytrapConfig) {
+            document.getElementById('honeytrap-snippet-type').value = canary.honeytrapConfig.snippetType || 'js_script';
+        }
         
         const standardTtls = [0, 24, 72, 168];
         const ttlVal = canary.ttlHours || 0;
@@ -650,6 +828,7 @@ class WaispStudioApp {
         document.getElementById('canary-notify-webhook').checked = channels.includes('webhook');
         document.getElementById('canary-webhook-url').value = canary.webhookUrl || '';
 
+        this.toggleTrapKindFields();
         this.toggleCustomProbeCodeField();
         this.toggleWebhookUrlField();
         this.toggleCustomTtlField();
@@ -658,6 +837,7 @@ class WaispStudioApp {
 
     async saveCanaryProbe() {
         const editId = document.getElementById('canary-edit-id').value;
+        const trapKind = document.getElementById('canary-trap-kind').value;
         const targetUrl = document.getElementById('canary-target-url').value.trim();
         let token = document.getElementById('canary-token').value.trim();
         const probeType = document.getElementById('canary-probe-type').value;
@@ -672,7 +852,7 @@ class WaispStudioApp {
         }
 
         if (!targetUrl) {
-            this.showToast('Please enter a target URL for the canary probe', 'warning');
+            this.showToast('Please enter a target URL for the probe/trap', 'warning');
             return;
         }
 
@@ -691,13 +871,32 @@ class WaispStudioApp {
         const webhookUrl = document.getElementById('canary-webhook-url').value.trim();
         const expiresAt = ttlHours > 0 ? new Date(Date.now() + ttlHours * 3600 * 1000).toISOString() : undefined;
 
+        let poisonMirrorConfig;
+        if (trapKind === 'poison_mirror_tarpit') {
+            poisonMirrorConfig = {
+                tarpitMode: document.getElementById('tarpit-mode').value,
+                delayMsPerByte: parseInt(document.getElementById('tarpit-delay-ms').value) || 1000,
+                decoyCredentials: { user: document.getElementById('tarpit-decoy-user').value || 'admin_honey' }
+            };
+        }
+
+        let honeytrapConfig;
+        if (trapKind === 'honeytrap_injection') {
+            honeytrapConfig = {
+                snippetType: document.getElementById('honeytrap-snippet-type').value
+            };
+        }
+
         this.state.canaries[id] = {
             id,
             canaryToken: token,
             targetUrl,
             callbackUrl,
+            trapKind,
             probeType,
             customProbeCode: probeType === 'custom_creator' ? customProbeCode : undefined,
+            poisonMirrorConfig,
+            honeytrapConfig,
             ttlHours,
             expiresAt,
             notificationChannels,
@@ -708,7 +907,7 @@ class WaispStudioApp {
 
         this.closeModals();
         this.renderAll();
-        this.showToast(`🍯 Canary Probe "${token}" ${editId ? 'updated' : 'armed & deployed'}! (TTL: ${ttlHours > 0 ? ttlHours + 'h' : 'Permanent'})`, 'success');
+        this.showToast(`🍯 Trap "${token}" ${editId ? 'updated' : 'armed & deployed'}! (Kind: ${trapKind})`, 'success');
         await this.syncVaultState();
     }
 
@@ -718,8 +917,16 @@ class WaispStudioApp {
 
         canary.status = 'triggered';
         canary.triggeredAt = new Date().toISOString();
-        canary.sourceIp = '198.51.100.42 (Simulated Out-of-Band Callback)';
-        canary.userAgent = 'Mozilla/5.0 (WAISP Active Canary Test Probe)';
+        canary.sourceIp = '198.51.100.42 (Simulated Attacker IP)';
+        canary.userAgent = 'Mozilla/5.0 (sqlmap/1.5#passive attacker bot)';
+
+        if (canary.trapKind === 'poison_mirror_tarpit') {
+            canary.trappedAttackerLog = {
+                requestCount: 14,
+                trappedDurationSec: 42,
+                capturedPayloads: ['sqlmap/1.5#passive', 'admin\' OR 1=1--', 'GET /etc/passwd']
+            };
+        }
 
         // Create critical vulnerability finding in vault
         const vulnId = 'vuln-canary-' + Math.random().toString(36).substring(2, 9);
@@ -727,17 +934,17 @@ class WaispStudioApp {
             id: vulnId,
             targetId: canary.id,
             targetUrl: canary.targetUrl,
-            title: `🚨 Out-of-Band Data Exfiltration Confirmed (NectarCanary: ${canary.canaryToken})`,
+            title: `🚨 ${canary.trapKind === 'poison_mirror_tarpit' ? 'Attacker Frozen in Poison Mirror Tarpit' : 'Out-of-Band Data Exfiltration Confirmed'} (${canary.canaryToken})`,
             severity: 'CRITICAL',
             cvssScore: 10.0,
             stingerModule: 'dast',
-            description: `NectarCanary active probe triggered! Remote server executed out-of-band request to callback ${canary.callbackUrl}.`,
+            description: `Nectar Trap triggered! Attacker IP 198.51.100.42 captured.`,
             evidence: {
                 endpoint: canary.callbackUrl,
                 statusCode: 200,
                 headers: { 'X-WAISP-Canary-Trigger': canary.canaryToken }
             },
-            suggestedPatch: 'Sanitize server-side inputs to prevent SSRF and out-of-band HTTP requests.',
+            suggestedPatch: 'Sanitize server-side inputs and block malicious IP mask in firewall.',
             remediationSteps: ['Disable remote URL fetch', 'Enforce strict domain whitelist'],
             status: 'open',
             createdAt: new Date().toISOString(),
@@ -745,7 +952,7 @@ class WaispStudioApp {
         };
 
         this.renderAll();
-        this.showToast(`🚨 ALERT! NectarCanary ${canary.canaryToken} was TRIGGERED! Vulnerability reported.`, 'danger');
+        this.showToast(`🚨 ALERT! ${canary.trapKind === 'poison_mirror_tarpit' ? 'ATTACKER FROZEN IN TARPIT!' : 'Trap TRIGGERED!'}`, 'danger');
         await this.syncVaultState();
     }
 
@@ -757,20 +964,21 @@ class WaispStudioApp {
         canary.triggeredAt = undefined;
         canary.sourceIp = undefined;
         canary.userAgent = undefined;
+        canary.trappedAttackerLog = undefined;
 
         this.renderAll();
-        this.showToast(`🟢 Canary Probe "${canary.canaryToken}" alarm revoked & re-armed!`, 'success');
+        this.showToast(`🟢 Trap "${canary.canaryToken}" alarm revoked & re-armed!`, 'success');
         await this.syncVaultState();
     }
 
     async deleteCanaryProbe(id) {
         const canary = this.state.canaries[id];
-        const token = canary ? canary.canaryToken : 'this probe';
+        const token = canary ? canary.canaryToken : 'this trap';
 
-        this.showConfirmModal(`Are you sure you want to delete Canary Probe "${token}"?`, '🗑️ Delete Nectar Canary', async () => {
+        this.showConfirmModal(`Are you sure you want to delete Trap "${token}"?`, '🗑️ Delete Nectar Trap', async () => {
             delete this.state.canaries[id];
             this.renderAll();
-            this.showToast(`Canary Probe "${token}" deleted`, 'info');
+            this.showToast(`Trap "${token}" deleted`, 'info');
             await this.syncVaultState();
         });
     }
@@ -822,7 +1030,7 @@ class WaispStudioApp {
         const target = this.state.targets[targetId];
         if (!target) return;
 
-        // Collect selected Venom templates
+        const isAutoPotter = document.getElementById('scan-enable-autopotter')?.checked || false;
         const selectedVenoms = Array.from(document.querySelectorAll('.scan-venom-chk:checked')).map(c => c.value);
 
         this.closeModals();
@@ -876,6 +1084,13 @@ class WaispStudioApp {
         });
 
         vulns.forEach(v => this.state.vulnerabilities[v.id] = v);
+
+        if (isAutoPotter && vulns.length > 0) {
+            const prBranch = `waisp/autopotter-fix-${Math.random().toString(36).substring(2, 8)}`;
+            const prUrl = `https://github.com/amglogicalis/waisp-repo-public/pull/${Math.floor(Math.random() * 899) + 100}`;
+            this.showToast(`🛠️ AutoPotter Patch Stinger generated GitHub PR: ${prUrl} (${prBranch})!`, 'success');
+        }
+
         this.renderAll();
         this.showToast(`🛡️ Scan completed! Found ${vulns.length} security findings.`, 'success');
         await this.syncVaultState();

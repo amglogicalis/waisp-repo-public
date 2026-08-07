@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WAISP Nest Studio — Hornet Security Engine ($0 DAST & Red Teaming)</title>
+    <title>WAISP Nest Studio — Hornet Security & Colony Mesh</title>
     <link rel="icon" type="image/png" href="assets/logo_waisp.png">
+    <link rel="stylesheet" href="style.css?v=1.2.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=1.0.0">
 </head>
 <body>
     <div id="toast-container"></div>
@@ -18,7 +18,7 @@
         <aside class="sidebar">
             <div class="logo">
                 <img src="assets/logo_waisp.png" class="logo-img" alt="WAISP Logo">
-                <span>WAISP <span class="logo-badge">Nest v1.0.0</span></span>
+                <span>WAISP <span class="logo-badge">Nest v1.2.0</span></span>
             </div>
 
             <nav class="nav-menu">
@@ -35,7 +35,10 @@
                     <i class="fa-solid fa-vial"></i> Venom Templates
                 </a>
                 <a href="#" class="nav-item" data-view="canaries">
-                    <i class="fa-solid fa-cookie-bite"></i> Nectar Canaries
+                    <i class="fa-solid fa-cookie-bite"></i> Nectar Traps
+                </a>
+                <a href="#" class="nav-item" data-view="colony">
+                    <i class="fa-solid fa-hive"></i> Colony Mesh
                 </a>
                 <a href="#" class="nav-item" data-view="settings">
                     <i class="fa-solid fa-sliders"></i> Settings
@@ -117,9 +120,9 @@
                         </div>
 
                         <div class="card glass">
-                            <h3><i class="fa-solid fa-cookie-bite text-accent"></i> Active & Triggered Canaries</h3>
+                            <h3><i class="fa-solid fa-cookie-bite text-accent"></i> Active & Triggered Traps</h3>
                             <div id="dashboard-canaries-list" class="mt-4">
-                                <p class="text-muted">No canaries deployed yet.</p>
+                                <p class="text-muted">No traps deployed yet.</p>
                             </div>
                         </div>
                     </div>
@@ -161,16 +164,51 @@
                     </div>
                 </section>
 
-                <!-- Canaries View -->
+                <!-- Traps View -->
                 <section id="view-canaries" class="view-section hidden">
                     <div class="section-header">
-                        <h2>🍯 NectarCanaries Probes</h2>
+                        <h2>🍯 Nectar Trap Family (Probes, Poison Mirror & HoneyTraps)</h2>
                         <button class="btn btn-primary" onclick="app.openNewCanaryModal()">
-                            <i class="fa-solid fa-plus"></i> Generate Canary Probe
+                            <i class="fa-solid fa-plus"></i> Create Probe or Trap
                         </button>
                     </div>
                     <div id="canaries-grid" class="cards-grid mt-4">
                         <!-- Rendered by JS -->
+                    </div>
+                </section>
+
+                <!-- Colony Mesh View -->
+                <section id="view-colony" class="view-section hidden">
+                    <div class="section-header">
+                        <div>
+                            <h2>🐝 WaispColony Mesh — P2P Threat Intelligence</h2>
+                            <p class="text-muted">Decentralized Anonymous Immunity Sharing Network</p>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn btn-secondary" onclick="app.showColonySecurityInfo()">
+                                <i class="fa-solid fa-shield-halved"></i> How Privacy Works
+                            </button>
+                            <button id="btn-colony-toggle" class="btn btn-primary" onclick="app.toggleColonySubscription()">
+                                <i class="fa-solid fa-plug"></i> Join Colony Mesh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card glass mt-4">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <h3 id="colony-status-title"><i class="fa-solid fa-signal"></i> Network Status: Disconnected</h3>
+                                <p id="colony-status-desc" class="text-muted mt-1">Opt-in to share & receive anonymous threat intelligence wave signals.</p>
+                            </div>
+                            <span id="colony-status-badge" class="logo-badge" style="background:rgba(255,255,255,0.1); color:var(--text-muted);">OPTED OUT</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <h3><i class="fa-solid fa-rss text-accent"></i> Active Pheromone Threat Wave Signals</h3>
+                        <div id="colony-pheromones-grid" class="cards-grid mt-4">
+                            <!-- Rendered by JS -->
+                        </div>
                     </div>
                 </section>
 
@@ -192,7 +230,7 @@
             </div>
 
             <footer class="footer">
-                <span>Powered by Terra Ecosystem • WAISP Nest v1.0.0 • $0 Security Infrastructure</span>
+                <span>Powered by Terra Ecosystem • WAISP Nest v1.2.0 • $0 Security Infrastructure</span>
             </footer>
         </main>
     </div>
@@ -270,6 +308,7 @@
                 </div>
                 <div class="form-group">
                     <label><input type="checkbox" id="scan-create-issues"> Create GitHub Issues automatically with Hivuard</label>
+                    <label><input type="checkbox" id="scan-enable-autopotter" checked> 🛠️ Enable AutoPotter Patch Stinger (Auto-generate PR Code Fixes)</label>
                 </div>
             </div>
             <div class="modal-footer">
@@ -330,23 +369,69 @@
         </div>
     </div>
 
-    <!-- Modal Nectar Canary -->
+    <!-- Modal Nectar Trap Family -->
     <div id="modal-canary" class="modal-backdrop hidden">
         <div class="modal glass">
             <div class="modal-header">
-                <h3 id="canary-modal-title">🍯 Generate NectarCanary Probe</h3>
+                <h3 id="canary-modal-title">🍯 Create Nectar Probe or Trap</h3>
                 <button class="btn-close" onclick="app.closeModals()">&times;</button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="canary-edit-id">
                 <div class="form-group">
+                    <label>Select Trap Family Type</label>
+                    <select id="canary-trap-kind" class="input" onchange="app.toggleTrapKindFields()">
+                        <option value="canary_probe">🍯 NectarCanary Probe (Out-of-Band Detection)</option>
+                        <option value="poison_mirror_tarpit">☠️ Nectar Poison Mirror Tarpit Trap (Freeze Attackers & Log Forensics)</option>
+                        <option value="honeytrap_injection">💉 HoneyTrap Injection Snippet (Injectable HTML/JS for Apps)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label>Target URL</label>
                     <input type="url" id="canary-target-url" class="input" placeholder="https://myapp.example.com">
                 </div>
+
                 <div class="form-group">
                     <label>Canary Token (Auto-generated if empty)</label>
                     <input type="text" id="canary-token" class="input" placeholder="waisp_canary_custom_token">
                 </div>
+
+                <!-- Poison Mirror Options -->
+                <div id="group-poison-mirror" class="form-group hidden p-3" style="background:rgba(239,68,68,0.1); border:1px solid var(--danger); border-radius:8px;">
+                    <label class="text-danger">☠️ Poison Mirror Tarpit Configuration</label>
+                    <div class="form-group mt-2">
+                        <label>Tarpit Delay Mode</label>
+                        <select id="tarpit-mode" class="input">
+                            <option value="streaming">Streaming Tarpit (1 B/sec Slow-Response)</option>
+                            <option value="hang">Infinite Hang (Freeze Socket Connection)</option>
+                            <option value="custom_code">Custom Delay Code</option>
+                        </select>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label>Delay (ms per byte)</label>
+                        <input type="number" id="tarpit-delay-ms" class="input" value="1000" min="100">
+                    </div>
+                    <div class="form-group mt-2">
+                        <label>Decoy Credentials (Fake Honeypot Secrets)</label>
+                        <input type="text" id="tarpit-decoy-user" class="input" placeholder="admin_honey / secret_pass_123">
+                    </div>
+                </div>
+
+                <!-- HoneyTrap Injection Options -->
+                <div id="group-honeytrap-injection" class="form-group hidden p-3" style="background:rgba(250,204,21,0.1); border:1px solid var(--accent); border-radius:8px;">
+                    <label class="text-accent">💉 HoneyTrap Snippet Generator</label>
+                    <div class="form-group mt-2">
+                        <label>Snippet Type</label>
+                        <select id="honeytrap-snippet-type" class="input">
+                            <option value="js_script">JavaScript Script Tag (&lt;script src="..."&gt;)</option>
+                            <option value="html_meta">HTML Meta Tag (&lt;meta name="waisp-trap" ...&gt;)</option>
+                            <option value="xml_entity">XML External Entity (XXE System Callback)</option>
+                            <option value="custom_creator">Custom Creator Code</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label>Probe Type</label>
                     <select id="canary-probe-type" class="input" onchange="app.toggleCustomProbeCodeField()">
@@ -356,10 +441,12 @@
                         <option value="custom_creator">Custom Creator Probe (User Payload Code)</option>
                     </select>
                 </div>
+
                 <div id="canary-custom-code-group" class="form-group hidden">
                     <label>Custom Creator Probe Code / Script</label>
                     <textarea id="canary-custom-code" class="input" rows="3" placeholder="// Custom JavaScript or Shell payload developed by creator&#10;fetch(callbackUrl, { headers: { 'X-WAISP-Canary': token } });"></textarea>
                 </div>
+
                 <div class="form-group">
                     <label>Time-To-Live Expiration (TTL Hours)</label>
                     <select id="canary-ttl" class="input" onchange="app.toggleCustomTtlField()">
@@ -370,10 +457,12 @@
                         <option value="custom">Custom TTL (Specify custom hours manually)</option>
                     </select>
                 </div>
+
                 <div id="canary-custom-ttl-group" class="form-group hidden">
                     <label>Custom Expiration Hours (TTL)</label>
                     <input type="number" id="canary-custom-ttl" class="input" placeholder="e.g. 12 or 48" min="1">
                 </div>
+
                 <div class="form-group">
                     <label>Notification & Alert Channels</label>
                     <div class="checkbox-group">
@@ -382,6 +471,7 @@
                         <label><input type="checkbox" id="canary-notify-webhook" onchange="app.toggleWebhookUrlField()"> 🔔 Webhook HTTP POST</label>
                     </div>
                 </div>
+
                 <div id="canary-webhook-group" class="form-group hidden">
                     <label>Webhook Alert URL</label>
                     <input type="url" id="canary-webhook-url" class="input" placeholder="https://api.mycompany.com/webhooks/security">
@@ -389,7 +479,35 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
-                <button class="btn btn-primary" onclick="app.saveCanaryProbe()">Save & Arm Probe</button>
+                <button class="btn btn-primary" onclick="app.saveCanaryProbe()">Save & Arm Trap</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Colony Security Info -->
+    <div id="modal-colony-security" class="modal-backdrop hidden">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3>🔒 WaispColony Mesh Privacy & Security</h3>
+                <button class="btn-close" onclick="app.closeModals()">&times;</button>
+            </div>
+            <div class="modal-body" style="line-height:1.6;">
+                <p><strong>How WaispColony Mesh protects your privacy:</strong></p>
+                <div class="p-3 mt-2" style="background:rgba(16,185,129,0.1); border:1px solid #10b981; border-radius:8px;">
+                    <p class="text-small" style="color:#10b981;"><strong>✅ 100% Anonymous & Zero PII</strong></p>
+                    <p class="text-small text-muted mt-1">No personal tokens, target domain names, or private API keys are ever published to the mesh network.</p>
+                </div>
+                <div class="p-3 mt-2" style="background:rgba(250,204,21,0.1); border:1px solid var(--accent); border-radius:8px;">
+                    <p class="text-small text-accent"><strong>🔑 256-Bit SHA Threat Hashes</strong></p>
+                    <p class="text-small text-muted mt-1">Only cryptographic attack hashes (e.g. `ph_938a...`) and sanitized IP masks are shared across Nests.</p>
+                </div>
+                <div class="p-3 mt-2" style="background:rgba(208,19,54,0.1); border:1px solid var(--primary); border-radius:8px;">
+                    <p class="text-small text-primary"><strong>⚡ Automatic Immunity Rules</strong></p>
+                    <p class="text-small text-muted mt-1">When any Nest detects an attack, your local Nest automatically generates local immunity rules to block that vector before it touches your apps.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="app.closeModals()">Got It</button>
             </div>
         </div>
     </div>
@@ -410,6 +528,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.0.3"></script>
+    <script src="app.js?v=1.2.0"></script>
 </body>
 </html>
