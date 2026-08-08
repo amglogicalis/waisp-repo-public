@@ -865,12 +865,34 @@ class WaispStudioApp {
         if (trapKind === 'poison_mirror_tarpit') {
             groupMirror.classList.remove('hidden');
             groupInjection.classList.add('hidden');
+            this.toggleTarpitCustomCodeField();
         } else if (trapKind === 'honeytrap_injection') {
             groupMirror.classList.add('hidden');
             groupInjection.classList.remove('hidden');
+            this.toggleHoneytrapCustomCodeField();
         } else {
             groupMirror.classList.add('hidden');
             groupInjection.classList.add('hidden');
+        }
+    }
+
+    toggleTarpitCustomCodeField() {
+        const mode = document.getElementById('tarpit-mode').value;
+        const group = document.getElementById('tarpit-custom-code-group');
+        if (mode === 'custom_code') {
+            group?.classList.remove('hidden');
+        } else {
+            group?.classList.add('hidden');
+        }
+    }
+
+    toggleHoneytrapCustomCodeField() {
+        const type = document.getElementById('honeytrap-snippet-type').value;
+        const group = document.getElementById('honeytrap-custom-snippet-group');
+        if (type === 'custom_creator') {
+            group?.classList.remove('hidden');
+        } else {
+            group?.classList.add('hidden');
         }
     }
 
@@ -912,6 +934,8 @@ class WaispStudioApp {
         document.getElementById('canary-token').value = '';
         document.getElementById('canary-probe-type').value = 'http_callback';
         document.getElementById('canary-custom-code').value = '';
+        if (document.getElementById('tarpit-custom-code')) document.getElementById('tarpit-custom-code').value = '';
+        if (document.getElementById('honeytrap-custom-snippet-code')) document.getElementById('honeytrap-custom-snippet-code').value = '';
         document.getElementById('canary-ttl').value = '0';
         document.getElementById('canary-custom-ttl').value = '';
         document.getElementById('canary-notify-console').checked = true;
@@ -941,10 +965,16 @@ class WaispStudioApp {
             document.getElementById('tarpit-mode').value = canary.poisonMirrorConfig.tarpitMode || 'streaming';
             document.getElementById('tarpit-delay-ms').value = canary.poisonMirrorConfig.delayMsPerByte || 1000;
             document.getElementById('tarpit-decoy-user').value = canary.poisonMirrorConfig.decoyCredentials?.user || '';
+            if (document.getElementById('tarpit-custom-code')) {
+                document.getElementById('tarpit-custom-code').value = canary.poisonMirrorConfig.customResponseHtml || '';
+            }
         }
 
         if (canary.honeytrapConfig) {
             document.getElementById('honeytrap-snippet-type').value = canary.honeytrapConfig.snippetType || 'js_script';
+            if (document.getElementById('honeytrap-custom-snippet-code')) {
+                document.getElementById('honeytrap-custom-snippet-code').value = canary.honeytrapConfig.customSnippetCode || '';
+            }
         }
         
         const standardTtls = [0, 24, 72, 168];
@@ -1011,14 +1041,16 @@ class WaispStudioApp {
             poisonMirrorConfig = {
                 tarpitMode: document.getElementById('tarpit-mode').value,
                 delayMsPerByte: parseInt(document.getElementById('tarpit-delay-ms').value) || 1000,
-                decoyCredentials: { user: document.getElementById('tarpit-decoy-user').value || 'admin_honey' }
+                decoyCredentials: { user: document.getElementById('tarpit-decoy-user').value || 'admin_honey' },
+                customResponseHtml: document.getElementById('tarpit-custom-code')?.value.trim()
             };
         }
 
         let honeytrapConfig;
         if (trapKind === 'honeytrap_injection') {
             honeytrapConfig = {
-                snippetType: document.getElementById('honeytrap-snippet-type').value
+                snippetType: document.getElementById('honeytrap-snippet-type').value,
+                customSnippetCode: document.getElementById('honeytrap-custom-snippet-code')?.value.trim()
             };
         }
 
