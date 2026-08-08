@@ -652,6 +652,33 @@ class WaispStudioApp {
         this.syncVaultState();
     }
 
+    async clearVulnerabilities() {
+        const vulns = Object.keys(this.state.vulnerabilities || {});
+        if (vulns.length === 0) {
+            this.showToast('No vulnerability findings recorded to clear.', 'info');
+            return;
+        }
+
+        this.showConfirmModal(`Are you sure you want to clear all ${vulns.length} vulnerability findings from HornetVault?`, '🧹 Clear All Vulnerabilities', async () => {
+            this.state.vulnerabilities = {};
+            this.renderAll();
+            this.showToast(`🧹 All ${vulns.length} vulnerability findings cleared!`, 'success');
+            await this.syncVaultState();
+        });
+    }
+
+    async deleteVulnerability(id) {
+        const vuln = this.state.vulnerabilities[id];
+        const title = vuln ? vuln.title : 'this finding';
+
+        this.showConfirmModal(`Are you sure you want to delete finding "${title}"?`, '🗑️ Delete Finding', async () => {
+            delete this.state.vulnerabilities[id];
+            this.renderAll();
+            this.showToast(`Vulnerability finding deleted`, 'info');
+            await this.syncVaultState();
+        });
+    }
+
     broadcastThreatToColony(canaryId) {
         const canary = this.state.canaries[canaryId];
         if (!canary) return;
