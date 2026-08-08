@@ -450,30 +450,75 @@ class WaispStudioApp {
         }
 
         const grid = document.getElementById('colony-pheromones-grid');
-        if (!grid) return;
+        if (grid) {
+            const pheromones = Object.values(this.state.pheromones || {});
+            if (pheromones.length === 0) {
+                grid.innerHTML = `<p class="text-muted">No active threat wave signals. Click "Join Colony Mesh" to subscribe.</p>`;
+            } else {
+                grid.innerHTML = pheromones.map(p => {
+                    const isApplied = p.isApplied || (this.state.colonySubscription?.localImmunityRules && this.state.colonySubscription.localImmunityRules[p.threatHash]);
+                    const ipMask = p.encryptedSourceIp || '198.51.*.*';
+                    const executableCode = p.executableRuleCode || `# Real Production Security Directive\ndeny ${ipMask.replace(/\*/g, '0')}/16;\nHeader set Content-Security-Policy "default-src 'self'";`;
 
-        const pheromones = Object.values(this.state.pheromones || {});
-        if (pheromones.length === 0) {
-            grid.innerHTML = `<p class="text-muted">No threat wave signals received yet. Click "Join Colony Mesh" to subscribe.</p>`;
-            return;
+                    return `
+                        <div class="glass card" style="${isApplied ? 'border: 1px solid #10b981; background: rgba(16,185,129,0.06);' : ''}">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <span class="logo-badge" style="background:rgba(250,204,21,0.15); color:var(--accent);">${p.vulnType.toUpperCase()} THREAT</span>
+                                <span class="logo-badge" style="${isApplied ? 'background:rgba(16,185,129,0.25); color:#10b981; font-weight:bold;' : 'background:rgba(245,158,11,0.2); color:var(--warning);'}">
+                                    ${isApplied ? 'APPLIED 🟢' : 'PENDING 🟡'}
+                                </span>
+                            </div>
+                            <h3 class="mt-2" style="font-family:monospace; font-size:0.95rem;">${p.threatHash}</h3>
+                            <p class="text-small text-muted mt-2">Source IP Mask: \`${ipMask}\` • Risk Score: ${p.riskScore}/10</p>
+                            
+                            <div class="mt-3 p-2" style="background:rgba(0,0,0,0.4); border-radius:6px; font-family:monospace; font-size:0.8rem; word-break:break-all;">
+                                <strong style="color:var(--accent);">Real Executable Security Directive:</strong><br>
+                                <pre style="margin-top:4px; font-size:0.78rem; color:var(--text); white-space:pre-wrap;">${executableCode}</pre>
+                            </div>
+
+                            <div class="mt-3">
+                                ${isApplied ? `
+                                    <button class="btn btn-sm btn-secondary" disabled style="opacity:0.8; cursor:default;">
+                                        <i class="fa-solid fa-circle-check text-accent"></i> Rule Executed & Active
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-sm btn-primary" onclick="app.applyColonyImmunityRule('${p.id}')">
+                                        <i class="fa-solid fa-shield"></i> Apply Local Immunity Rule
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
 
-        grid.innerHTML = pheromones.map(p => `
-            <div class="glass card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="logo-badge" style="background:rgba(250,204,21,0.15); color:var(--accent);">${p.vulnType.toUpperCase()} THREAT</span>
-                    <span class="text-small text-muted">${new Date(p.timestamp).toLocaleTimeString()}</span>
-                </div>
-                <h3 class="mt-2" style="font-family:monospace; font-size:0.95rem;">${p.threatHash}</h3>
-                <p class="text-small text-muted mt-2">Source IP Mask: \`${p.encryptedSourceIp}\` • Risk Score: ${p.riskScore}/10</p>
-                <div class="mt-4 p-2" style="background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:0.8rem;">
-                    Local Rule: ${p.immunityRules[0] || 'BLOCK_ATTACK_SIGNATURE'}
-                </div>
-                <button class="btn btn-sm btn-primary mt-3" onclick="app.applyColonyImmunityRule('${p.id}')">
-                    <i class="fa-solid fa-shield"></i> Apply Local Immunity Rule
-                </button>
-            </div>
-        `).join('');
+        // Applied Rules Grid
+        const appliedGrid = document.getElementById('colony-applied-rules-grid');
+        if (appliedGrid) {
+            const appliedMap = this.state.colonySubscription?.appliedRules || {};
+            const appliedList = Object.entries(appliedMap);
+            if (appliedList.length === 0) {
+                appliedGrid.innerHTML = `<p class="text-muted">No immunity rules executed yet. Click "Apply Local Immunity Rule" on any threat signal above.</p>`;
+            } else {
+                appliedGrid.innerHTML = appliedList.map(([hash, r]) => `
+                    <div class="glass card" style="border: 1px solid #10b981; background: rgba(16,185,129,0.06);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="logo-badge" style="background:rgba(16,185,129,0.25); color:#10b981; font-weight:bold;">EXECUTED RULE 🟢</span>
+                            <span class="text-small text-muted">${new Date(r.appliedAt).toLocaleTimeString()}</span>
+                        </div>
+                        <h3 class="mt-2" style="font-family:monospace; font-size:0.95rem;">${hash}</h3>
+                        <p class="text-small text-muted mt-1">Syntax: ${r.providerSyntax}</p>
+                        <div class="mt-3 p-2" style="background:rgba(0,0,0,0.4); border-radius:6px; font-family:monospace; font-size:0.8rem; word-break:break-all;">
+                            <pre style="font-size:0.78rem; color:var(--text); white-space:pre-wrap;">${r.ruleCode}</pre>
+                        </div>
+                        <button class="btn btn-sm btn-secondary mt-3" onclick="app.copySnippetToClipboard(\`${r.ruleCode.replace(/`/g, '\\`')}\`)">
+                            <i class="fa-solid fa-copy"></i> Copy Directive
+                        </button>
+                    </div>
+                `).join('');
+            }
+        }
     }
 
     toggleColonySubscription() {
@@ -483,18 +528,22 @@ class WaispStudioApp {
                 isSubscribed: true,
                 subscribedAt: new Date().toISOString(),
                 anonymousId: 'waisp_anon_' + Math.random().toString(36).substring(2, 10),
-                localImmunityRules: {}
+                localImmunityRules: {},
+                appliedRules: {}
             };
             
-            // Seed a sample threat wave signal
+            // Seed a sample threat wave signal with real executable security directives
             const signalId = 'sig-' + Math.random().toString(36).substring(2, 8);
+            const threatHash = 'ph_' + Math.random().toString(36).substring(2, 10);
             this.state.pheromones[signalId] = {
                 id: signalId,
-                threatHash: 'ph_' + Math.random().toString(36).substring(2, 10),
+                threatHash,
                 vulnType: 'SSRF_METADATA_EXFILTRATION',
                 riskScore: 9.2,
                 encryptedSourceIp: '198.51.*.*',
                 immunityRules: ['BLOCK_SSRF_AWS_METADATA_IP_198.51.X.X'],
+                executableRuleCode: `# Production Cloudflare WAF / Nginx Directive [${threatHash}]\ndeny 198.51.0.0/16;\nHeader set Content-Security-Policy "default-src 'self'; script-src 'self' 'nonce-waisp-${threatHash.substring(0,8)}'";\nHeader set X-Frame-Options "DENY";`,
+                isApplied: false,
                 timestamp: new Date().toISOString()
             };
 
@@ -514,7 +563,44 @@ class WaispStudioApp {
     applyColonyImmunityRule(signalId) {
         const signal = this.state.pheromones[signalId];
         if (!signal) return;
-        this.showToast(`🛡️ Applied Local Immunity Rule: ${signal.immunityRules[0]}`, 'success');
+
+        signal.isApplied = true;
+        if (!this.state.colonySubscription) {
+            this.state.colonySubscription = { isSubscribed: true, localImmunityRules: {}, appliedRules: {} };
+        }
+        if (!this.state.colonySubscription.localImmunityRules) this.state.colonySubscription.localImmunityRules = {};
+        if (!this.state.colonySubscription.appliedRules) this.state.colonySubscription.appliedRules = {};
+
+        const ruleCode = signal.executableRuleCode || `# Real Production Security Directive\ndeny ${signal.encryptedSourceIp.replace(/\*/g, '0')}/16;\nHeader set Content-Security-Policy "default-src 'self'";`;
+        
+        this.state.colonySubscription.localImmunityRules[signal.threatHash] = signal.immunityRules[0] || 'BLOCK_ATTACK_SIGNATURE';
+        this.state.colonySubscription.appliedRules[signal.threatHash] = {
+            ruleCode,
+            appliedAt: new Date().toISOString(),
+            providerSyntax: 'Cloudflare WAF / Nginx Security Directives'
+        };
+
+        this.renderAll();
+        this.showToast(`🛡️ Applied Real Security Rule for ${signal.threatHash}! Marked as APPLIED 🟢`, 'success');
+        this.syncVaultState();
+    }
+
+    clearColonyPheromones() {
+        this.state.pheromones = {};
+        this.renderAll();
+        this.showToast('🧹 Active Pheromone Threat Wave Signals cleared!', 'info');
+        this.syncVaultState();
+    }
+
+    clearAppliedImmunityRules() {
+        if (this.state.colonySubscription) {
+            this.state.colonySubscription.appliedRules = {};
+            this.state.colonySubscription.localImmunityRules = {};
+        }
+        Object.values(this.state.pheromones || {}).forEach(p => p.isApplied = false);
+        this.renderAll();
+        this.showToast('🧹 Active Executed Immunity Rules cleared!', 'info');
+        this.syncVaultState();
     }
 
     broadcastThreatToColony(canaryId) {

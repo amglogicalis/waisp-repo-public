@@ -38,7 +38,7 @@
                     <i class="fa-solid fa-cookie-bite"></i> Nectar Traps
                 </a>
                 <a href="#" class="nav-item" data-view="colony">
-                    <i class="fa-solid fa-hive"></i> Colony Mesh
+                    <i class="fa-solid fa-satellite-dish"></i> Colony Mesh
                 </a>
                 <a href="#" class="nav-item" data-view="settings">
                     <i class="fa-solid fa-sliders"></i> Settings
@@ -181,10 +181,10 @@
                 <section id="view-colony" class="view-section hidden">
                     <div class="section-header">
                         <div>
-                            <h2>🐝 WaispColony Mesh — P2P Threat Intelligence</h2>
+                            <h2><i class="fa-solid fa-satellite-dish text-accent"></i> WaispColony Mesh — P2P Threat Intelligence</h2>
                             <p class="text-muted">Decentralized Anonymous Immunity Sharing Network</p>
                         </div>
-                        <div style="display:flex; gap:10px;">
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
                             <button class="btn btn-secondary" onclick="app.showColonySecurityInfo()">
                                 <i class="fa-solid fa-shield-halved"></i> How Privacy Works
                             </button>
@@ -205,8 +205,25 @@
                     </div>
 
                     <div class="mt-6">
-                        <h3><i class="fa-solid fa-rss text-accent"></i> Active Pheromone Threat Wave Signals</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <h3><i class="fa-solid fa-rss text-accent"></i> Active Pheromone Threat Wave Signals</h3>
+                            <button class="btn btn-sm btn-secondary" onclick="app.clearColonyPheromones()">
+                                <i class="fa-solid fa-broom"></i> Clear Threat Signals
+                            </button>
+                        </div>
                         <div id="colony-pheromones-grid" class="cards-grid mt-4">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+
+                    <div class="mt-8" style="margin-top:2rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <h3><i class="fa-solid fa-shield-cat text-accent"></i> Active Executed Immunity Rules</h3>
+                            <button class="btn btn-sm btn-secondary" onclick="app.clearAppliedImmunityRules()">
+                                <i class="fa-solid fa-broom"></i> Clear Applied Rules
+                            </button>
+                        </div>
+                        <div id="colony-applied-rules-grid" class="cards-grid mt-4">
                             <!-- Rendered by JS -->
                         </div>
                     </div>
