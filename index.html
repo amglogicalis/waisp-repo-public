@@ -501,6 +501,49 @@
         </div>
     </div>
 
+    <!-- Modal Colony Apply Rule to Targets -->
+    <div id="modal-colony-apply-rule" class="modal-backdrop hidden">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3>🛡️ Apply Immunity Rule to Audit Targets</h3>
+                <button class="btn-close" onclick="app.closeModals()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="colony-apply-signal-id">
+                
+                <div class="form-group">
+                    <label>Select Target(s) to Immunize</label>
+                    <div id="colony-target-checkboxes" class="checkbox-group mt-2">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label>Executable Security Directive</label>
+                    <div class="p-3" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:8px;">
+                        <pre id="colony-apply-code" style="font-family:monospace; font-size:0.8rem; color:var(--accent); white-space:pre-wrap;"></pre>
+                    </div>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label>📋 Where & How to Paste / Configure This Directive</label>
+                    <div class="p-3" style="background:rgba(250,204,21,0.1); border:1px solid var(--accent); border-radius:8px;">
+                        <p class="text-small text-accent"><strong>1. Terra / WEBBL Cocoons:</strong> Auto-injected to `.waisp-storage` headers.</p>
+                        <p class="text-small text-muted mt-1"><strong>2. Cloudflare WAF:</strong> Go to Security &gt; WAF &gt; Custom Rules &gt; Add IP Set rule.</p>
+                        <p class="text-small text-muted mt-1"><strong>3. Nginx / Apache:</strong> Paste inside your `/etc/nginx/conf.d/security.conf` file.</p>
+                        <p class="text-small text-muted mt-1"><strong>4. AWS CloudFront:</strong> Add IP CIDR Block rule in AWS WAF ACL.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.confirmApplyColonyImmunityRule()">
+                    <i class="fa-solid fa-shield-cat"></i> Confirm & Execute Immunity
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Colony Security Info -->
     <div id="modal-colony-security" class="modal-backdrop hidden">
         <div class="modal glass">

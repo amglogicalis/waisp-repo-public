@@ -564,6 +564,52 @@ class WaispStudioApp {
         const signal = this.state.pheromones[signalId];
         if (!signal) return;
 
+        document.getElementById('colony-apply-signal-id').value = signalId;
+        const codePre = document.getElementById('colony-apply-code');
+        if (codePre) {
+            codePre.textContent = signal.executableRuleCode || `# Real Production Security Directive\ndeny ${(signal.encryptedSourceIp || '198.51.*.*').replace(/\*/g, '0')}/16;\nHeader set Content-Security-Policy "default-src 'self'";`;
+        }
+
+        const targetContainer = document.getElementById('colony-target-checkboxes');
+        if (targetContainer) {
+            const targets = Object.values(this.state.targets || {});
+            if (targets.length === 0) {
+                targetContainer.innerHTML = `<label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" class="colony-target-chk" value="all" checked> 🎯 All Active Audit Targets (Global Protection Rule)</label>`;
+            } else {
+                targetContainer.innerHTML = `
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" class="colony-target-chk" value="all" checked onchange="app.toggleAllColonyTargets(this)">
+                        <strong>🎯 ALL Audit Targets (Global Protection)</strong>
+                    </label>
+                    ${targets.map(t => `
+                        <label style="display:flex; align-items:center; gap:8px; margin-left:12px;">
+                            <input type="checkbox" class="colony-target-chk target-item-chk" value="${t.id}" checked>
+                            🎯 ${t.name} <span class="logo-badge" style="font-size:0.65rem;">${(t.provider || 'terra').toUpperCase()}</span>
+                        </label>
+                    `).join('')}
+                `;
+            }
+        }
+
+        document.getElementById('modal-colony-apply-rule')?.classList.remove('hidden');
+    }
+
+    toggleAllColonyTargets(masterChk) {
+        const itemChks = document.querySelectorAll('.target-item-chk');
+        itemChks.forEach(chk => chk.checked = masterChk.checked);
+    }
+
+    confirmApplyColonyImmunityRule() {
+        const signalId = document.getElementById('colony-apply-signal-id').value;
+        const signal = this.state.pheromones[signalId];
+        if (!signal) return;
+
+        const selectedTargetIds = Array.from(document.querySelectorAll('.colony-target-chk:checked')).map(c => c.value);
+        if (selectedTargetIds.length === 0) {
+            this.showToast('Please select at least one target to immunize', 'warning');
+            return;
+        }
+
         signal.isApplied = true;
         if (!this.state.colonySubscription) {
             this.state.colonySubscription = { isSubscribed: true, localImmunityRules: {}, appliedRules: {} };
@@ -577,11 +623,14 @@ class WaispStudioApp {
         this.state.colonySubscription.appliedRules[signal.threatHash] = {
             ruleCode,
             appliedAt: new Date().toISOString(),
-            providerSyntax: 'Cloudflare WAF / Nginx Security Directives'
+            providerSyntax: 'Cloudflare WAF / Nginx Security Directives',
+            appliedTargetIds: selectedTargetIds,
+            installationGuide: 'Auto-injected for Terra/WEBBL. Paste directive into Nginx/Cloudflare WAF for external hosts.'
         };
 
+        this.closeModals();
         this.renderAll();
-        this.showToast(`🛡️ Applied Real Security Rule for ${signal.threatHash}! Marked as APPLIED 🟢`, 'success');
+        this.showToast(`🛡️ Immunity Rule ${signal.threatHash} APPLIED 🟢 to ${selectedTargetIds.includes('all') ? 'All Targets' : selectedTargetIds.length + ' Target(s)'}!`, 'success');
         this.syncVaultState();
     }
 
