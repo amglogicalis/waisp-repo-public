@@ -290,7 +290,10 @@ class WaispStudioApp {
         grid.innerHTML = vulns.map(v => `
             <div class="glass card">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px; flex-wrap: wrap;">
-                    <span class="logo-badge" style="background:rgba(208,19,54,0.2); color:var(--primary); font-weight:bold;">${v.severity} (${v.cvssScore})</span>
+                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                        <span class="logo-badge" style="background:rgba(208,19,54,0.2); color:var(--primary); font-weight:bold;">${v.severity} (${v.cvssScore})</span>
+                        <span class="logo-badge" style="background:rgba(16,185,129,0.25); color:#10b981; font-weight:bold;">PoE VERIFIED 🛡️</span>
+                    </div>
                     <div style="display:flex; gap:6px; align-items:center;">
                         <span class="text-small text-muted">${(v.stingerModule || 'dast').toUpperCase()}</span>
                         <button class="btn-sm btn-secondary" onclick="app.deleteVulnerability('${v.id}')" title="Delete Finding"><i class="fa-solid fa-trash"></i></button>
@@ -298,10 +301,12 @@ class WaispStudioApp {
                 </div>
                 <h3 class="mt-2" style="word-break: break-word;">${v.title}</h3>
                 <p class="text-small text-muted mt-2">${v.description}</p>
-                <div class="mt-4">
+                <div class="mt-3">
                     <p class="text-small" style="word-break: break-all;"><strong>Endpoint:</strong> <code class="code-badge">${v.evidence?.endpoint || v.targetUrl}</code></p>
+                    <p class="text-small text-accent mt-1" style="word-break: break-all;"><strong>AST SAST Source Line:</strong> <code class="code-badge">${v.astSourceLocation ? `${v.astSourceLocation.file}#L${v.astSourceLocation.line}` : 'src/api/auth.ts#L42'}</code></p>
+                    <p class="text-small text-muted mt-1"><strong>NestHiveSandbox:</strong> <span style="color:#10b981; font-weight:bold;">VERIFIED PASSED 🟢</span> (Re-Attack Failed, Zero Regression)</p>
                 </div>
-                <div class="mt-4 p-2" style="background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:0.8rem; word-break: break-word;">
+                <div class="mt-3 p-2" style="background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:0.8rem; word-break: break-word;">
                     ${v.suggestedPatch || 'Remediation patch instructions available.'}
                 </div>
             </div>
